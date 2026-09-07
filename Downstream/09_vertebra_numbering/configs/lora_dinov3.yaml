@@ -1,0 +1,28 @@
+model:
+  backbone: dinov3
+  weights: weights/base/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth
+  image_size: 512
+  adapter:
+    enabled: true
+    type: lora
+    rank: 8
+    alpha: 16
+    dropout: 0.05
+    target_modules: [qkv, query, key, value]
+training:
+  batch_size: 4
+  epochs: 50
+  learning_rate: 0.001
+  head_learning_rate: 0.001
+  adapter_learning_rate: 0.0001
+  weight_decay: 0.01
+  warmup_epochs: 5
+  gradient_accumulation_steps: 1
+  max_grad_norm: 1.0
+  workers: 4
+  seed: 42
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.0
+output_dir: outputs/downstream/task09_lora/dinov3

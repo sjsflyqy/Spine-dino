@@ -1,0 +1,93 @@
+# DINOv2 ViT-B/14 training from random initialization on spine radiographs.
+#
+# This is intentionally separate from vitb14_spine.yaml, which is also used
+# for continued pretraining from public checkpoints.  The values below favor
+# stable training with the relatively small SpineDINO dataset and a practical
+# global batch on 2-4 RTX 4090 GPUs.
+
+dino:
+  loss_weight: 1.0
+  head_n_prototypes: 16384
+  head_bottleneck_dim: 256
+  head_nlayers: 3
+  head_hidden_dim: 2048
+  koleo_loss_weight: 0.1
+
+ibot:
+  loss_weight: 1.0
+  mask_sample_probability: 0.5
+  mask_ratio_min_max: [0.1, 0.5]
+  separate_head: false
+  head_n_prototypes: 16384
+  head_bottleneck_dim: 256
+  head_nlayers: 3
+  head_hidden_dim: 2048
+
+train:
+  dataset_path: SpineDINO:split=TRAIN:root=../../SpinePretrain-v1/spine_dino_dataset:extra=../../SpinePretrain-v1/spine_dino_dataset/extra
+  batch_size_per_gpu: 8
+  num_workers: 4
+  prefetch_factor: 1
+  OFFICIAL_EPOCH_LENGTH: 200
+  stop_after_iterations: 0
+  checkpoint_period: 5000
+  checkpoint_max_to_keep: 2
+  output_dir: ../../outputs/upstream/pretrain/dinov2_vitb14_random_init_v2
+  saveckp_freq: 10
+  seed: 42
+  cache_dataset: true
+  # Centering is less dependent on a large cross-GPU batch than Sinkhorn.
+  centering: centering
+
+student:
+  arch: vit_base
+  patch_size: 14
+  drop_path_rate: 0.1
+  layerscale: 1.0e-05
+  drop_path_uniform: true
+  pretrained_weights: ''
+  ffn_layer: mlp
+  block_chunks: 0
+  qkv_bias: true
+  proj_bias: true
+  ffn_bias: true
+  num_register_tokens: 0
+  interpolate_antialias: false
+  interpolate_offset: 0.1
+
+teacher:
+  # Official from-scratch default; the teacher is initialized from the student.
+  momentum_teacher: 0.992
+  final_momentum_teacher: 1.0
+  warmup_teacher_temp: 0.04
+  teacher_temp: 0.07
+  warmup_teacher_temp_epochs: 30
+
+optim:
+  # The launcher overrides epochs when --target-passes is used.
+  epochs: 100
+  weight_decay: 0.04
+  weight_decay_end: 0.4
+  # Scaled at runtime by sqrt(global_batch / 1024).
+  base_lr: 0.004
+  lr: 0.0
+  warmup_epochs: 30
+  min_lr: 1.0e-06
+  clip_grad: 3.0
+  # Five pseudo-epochs are 1,000 steps with OFFICIAL_EPOCH_LENGTH=200.
+  freeze_last_layer_epochs: 5
+  scaling_rule: sqrt_wrt_1024
+  patch_embed_lr_mult: 0.2
+  layerwise_decay: 0.9
+  adamw_beta1: 0.9
+  adamw_beta2: 0.999
+
+crops:
+  global_crops_scale: [0.50, 1.00]
+  local_crops_number: 8
+  local_crops_scale: [0.20, 0.50]
+  global_crops_size: 518
+  local_crops_size: 196
+
+evaluation:
+  eval_period_iterations: 5000

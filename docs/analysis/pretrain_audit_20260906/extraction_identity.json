@@ -1,0 +1,20 @@
+[
+  {
+    "run": "dinov2_vitb14_lvd142m_100pass_plan",
+    "step": 75712,
+    "source_keys": 175,
+    "extracted_keys": 175,
+    "missing": [],
+    "extra": [],
+    "unequal": []
+  },
+  {
+    "run": "dinov2_vitb14_lvd142m_100pass_plan",
+    "step": 378562,
+    "source_keys": 175,
+    "extracted_keys": 175,
+    "missing": [],
+    "extra": [],
+    "unequal": []
+  }
+]

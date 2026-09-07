@@ -1,0 +1,13 @@
+model:
+  backbone: dinov3
+  weights: weights/base/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth
+  image_size: 512
+  freeze_backbone: true
+training:
+  batch_size: 4
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0
+  workers: 4
+  seed: 42
+output_dir: outputs/downstream/task09_linear/dinov3_100ep

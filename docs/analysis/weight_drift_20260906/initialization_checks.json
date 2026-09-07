@@ -1,0 +1,30 @@
+[
+  {
+    "model": "DINOv2",
+    "missing": [],
+    "extra": [],
+    "unequal": [],
+    "tensor_count": 175
+  },
+  {
+    "model": "RAD-DINO",
+    "missing": [],
+    "extra": [],
+    "unequal": [],
+    "tensor_count": 175
+  },
+  {
+    "model": "MAIRA-2",
+    "missing": [],
+    "extra": [],
+    "unequal": [],
+    "tensor_count": 175
+  },
+  {
+    "model": "DINOv3",
+    "missing": [],
+    "extra": [],
+    "unequal": [],
+    "tensor_count": 188
+  }
+]

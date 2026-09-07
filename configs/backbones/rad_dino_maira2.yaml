@@ -1,0 +1,5 @@
+model:
+  backbone: rad_dino_maira2
+  weights: microsoft/rad-dino-maira-2
+  image_size: 518
+  freeze_backbone: true

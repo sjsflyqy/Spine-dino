@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>脊柱统一推理引擎</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="page-header">
+        <div>
+            <h1>脊柱统一推理引擎</h1>
+            <p>上传真实影像，直接调用统一后端完成关键点与指标推理</p>
+        </div>
+        <div class="server-status">
+            <span id="health-badge" class="badge">检查服务中</span>
+            <span id="device-badge" class="badge badge-muted">设备未知</span>
+            <a class="badge badge-link" href="/apidocs/" target="_blank" rel="noreferrer">Swagger 文档</a>
+        </div>
+    </header>
+
+    <nav class="tabs">
+        <button class="tab-btn active" data-tab="scoliosis">脊柱侧弯</button>
+        <button class="tab-btn" data-tab="slippage">腰椎滑脱</button>
+    </nav>
+
+    <main class="page-body">
+        <section id="tab-scoliosis" class="tab-panel active">
+            <div class="workspace-layout">
+                <div class="workspace-main">
+                    <div class="result-grid two-cols result-grid-main">
+                        <div class="canvas-card">
+                            <div class="canvas-header">
+                                <div class="canvas-title">正位 AP</div>
+                                <div class="canvas-tools">
+                                    <button id="scoliosis-ap-zoom-out" class="tool-btn" type="button">－</button>
+                                    <span id="scoliosis-ap-zoom-label" class="zoom-label">100%</span>
+                                    <button id="scoliosis-ap-zoom-in" class="tool-btn" type="button">＋</button>
+                                    <button id="scoliosis-ap-zoom-reset" class="tool-btn" type="button">重置</button>
+                                </div>
+                            </div>
+                            <div id="scoliosis-ap-viewport" class="canvas-viewport">
+                                <div class="canvas-stage">
+                                    <canvas id="scoliosis-ap-canvas"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="canvas-card">
+                            <div class="canvas-header">
+                                <div class="canvas-title">侧位 LAT</div>
+                                <div class="canvas-tools">
+                                    <button id="scoliosis-lat-zoom-out" class="tool-btn" type="button">－</button>
+                                    <span id="scoliosis-lat-zoom-label" class="zoom-label">100%</span>
+                                    <button id="scoliosis-lat-zoom-in" class="tool-btn" type="button">＋</button>
+                                    <button id="scoliosis-lat-zoom-reset" class="tool-btn" type="button">重置</button>
+                                </div>
+                            </div>
+                            <div id="scoliosis-lat-viewport" class="canvas-viewport">
+                                <div class="canvas-stage">
+                                    <canvas id="scoliosis-lat-canvas"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <aside class="workspace-side">
+                    <div class="card">
+                        <h2>上传影像</h2>
+                        <ol class="workflow-list">
+                            <li>上传医学影像</li>
+                            <li>先执行关键点检测</li>
+                            <li>可直接拖拽关键点微调</li>
+                            <li>使用最终确定的关键点做分析</li>
+                        </ol>
+                        <div class="upload-row">
+                            <label for="scoliosis-ap-file">正位 AP</label>
+                            <input id="scoliosis-ap-file" type="file" accept="image/*,.dcm,.dicom">
+                            <span id="scoliosis-ap-name" class="file-name">未选择文件</span>
+                        </div>
+                        <div class="upload-row">
+                            <label for="scoliosis-lat-file">侧位 LAT</label>
+                            <input id="scoliosis-lat-file" type="file" accept="image/*,.dcm,.dicom">
+                            <span id="scoliosis-lat-name" class="file-name">未选择文件</span>
+                        </div>
+                        <div class="upload-row">
+                            <label for="scoliosis-bbox-expand-px">框外扩</label>
+                            <input id="scoliosis-bbox-expand-px" type="number" min="0" step="1" value="0">
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h2>执行操作</h2>
+                        <div class="action-group">
+                            <button id="scoliosis-keypoints-btn" class="primary-btn">关键点检测</button>
+                            <button id="scoliosis-analyze-btn" class="secondary-btn">分析当前关键点</button>
+                            <button id="scoliosis-reset-btn" class="ghost-btn">重置点位</button>
+                        </div>
+                        <pre id="scoliosis-log" class="log-box">等待操作...</pre>
+                    </div>
+                    <div class="card side-output-card">
+                        <h2>返回结果</h2>
+                        <pre id="scoliosis-output" class="output-box">暂无结果</pre>
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <section id="tab-slippage" class="tab-panel">
+            <div class="workspace-layout">
+                <div class="workspace-main">
+                    <div class="result-grid three-cols result-grid-main">
+                        <div class="canvas-card">
+                            <div class="canvas-header">
+                                <div class="canvas-title">侧位 LAT</div>
+                                <div class="canvas-tools">
+                                    <button id="slippage-lat-zoom-out" class="tool-btn" type="button">－</button>
+                                    <span id="slippage-lat-zoom-label" class="zoom-label">100%</span>
+                                    <button id="slippage-lat-zoom-in" class="tool-btn" type="button">＋</button>
+                                    <button id="slippage-lat-zoom-reset" class="tool-btn" type="button">重置</button>
+                                </div>
+                            </div>
+                            <div id="slippage-lat-viewport" class="canvas-viewport">
+                                <div class="canvas-stage">
+                                    <canvas id="slippage-lat-canvas"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="canvas-card">
+                            <div class="canvas-header">
+                                <div class="canvas-title">过伸 GS</div>
+                                <div class="canvas-tools">
+                                    <button id="slippage-gs-zoom-out" class="tool-btn" type="button">－</button>
+                                    <span id="slippage-gs-zoom-label" class="zoom-label">100%</span>
+                                    <button id="slippage-gs-zoom-in" class="tool-btn" type="button">＋</button>
+                                    <button id="slippage-gs-zoom-reset" class="tool-btn" type="button">重置</button>
+                                </div>
+                            </div>
+                            <div id="slippage-gs-viewport" class="canvas-viewport">
+                                <div class="canvas-stage">
+                                    <canvas id="slippage-gs-canvas"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="canvas-card">
+                            <div class="canvas-header">
+                                <div class="canvas-title">过屈 GQ</div>
+                                <div class="canvas-tools">
+                                    <button id="slippage-gq-zoom-out" class="tool-btn" type="button">－</button>
+                                    <span id="slippage-gq-zoom-label" class="zoom-label">100%</span>
+                                    <button id="slippage-gq-zoom-in" class="tool-btn" type="button">＋</button>
+                                    <button id="slippage-gq-zoom-reset" class="tool-btn" type="button">重置</button>
+                                </div>
+                            </div>
+                            <div id="slippage-gq-viewport" class="canvas-viewport">
+                                <div class="canvas-stage">
+                                    <canvas id="slippage-gq-canvas"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <aside class="workspace-side">
+                    <div class="card">
+                        <h2>上传影像</h2>
+                        <ol class="workflow-list">
+                            <li>上传医学影像</li>
+                            <li>先执行关键点检测</li>
+                            <li>可直接拖拽关键点微调</li>
+                            <li>使用最终确定的关键点做分析</li>
+                        </ol>
+                        <div class="upload-row">
+                            <label for="slippage-lat-file">侧位 LAT</label>
+                            <input id="slippage-lat-file" type="file" accept="image/*,.dcm,.dicom">
+                            <span id="slippage-lat-name" class="file-name">未选择文件</span>
+                        </div>
+                        <div class="upload-row">
+                            <label for="slippage-gs-file">过伸 GS</label>
+                            <input id="slippage-gs-file" type="file" accept="image/*,.dcm,.dicom">
+                            <span id="slippage-gs-name" class="file-name">未选择文件</span>
+                        </div>
+                        <div class="upload-row">
+                            <label for="slippage-gq-file">过屈 GQ</label>
+                            <input id="slippage-gq-file" type="file" accept="image/*,.dcm,.dicom">
+                            <span id="slippage-gq-name" class="file-name">未选择文件</span>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h2>执行操作</h2>
+                        <div class="action-group">
+                            <button id="slippage-keypoints-btn" class="primary-btn">关键点检测</button>
+                            <button id="slippage-analyze-btn" class="secondary-btn">分析当前关键点</button>
+                            <button id="slippage-reset-btn" class="ghost-btn">重置点位</button>
+                        </div>
+                        <pre id="slippage-log" class="log-box">等待操作...</pre>
+                    </div>
+                    <div class="card side-output-card">
+                        <h2>返回结果</h2>
+                        <pre id="slippage-output" class="output-box">暂无结果</pre>
+                    </div>
+                </aside>
+            </div>
+        </section>
+    </main>
+
+    <div id="loading-mask" class="loading-mask hidden">
+        <div class="loading-panel">
+            <div class="spinner"></div>
+            <div id="loading-text">请求处理中...</div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

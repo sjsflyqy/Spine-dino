@@ -1,0 +1,13 @@
+model:
+  backbone: dinov2
+  weights: weights/base/dinov2/dinov2_vitb14_pretrain.pth
+  image_size: 518
+  freeze_backbone: true
+training:
+  batch_size: 4
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0
+  workers: 4
+  seed: 42
+output_dir: outputs/downstream/task09_linear/dinov2_100ep

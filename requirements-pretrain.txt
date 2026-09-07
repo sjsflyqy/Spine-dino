@@ -1,0 +1,13 @@
+numpy==1.26.4
+torch==2.5.1
+torchvision==0.20.1
+xformers==0.0.28.post3
+webdataset>=0.2.86
+pillow>=10
+omegaconf>=2.3
+torchmetrics==0.10.3
+fvcore
+iopath
+submitit
+safetensors>=0.4
+transformers>=4.40

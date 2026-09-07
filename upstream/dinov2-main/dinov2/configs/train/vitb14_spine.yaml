@@ -1,0 +1,80 @@
+# ============================================================
+# Spine-DINO 训练配置
+# 基于 RAD-DINO 权重（ViT-Base/14）在脊柱X光数据集上继续预训练
+#
+# 使用前必做：
+#   1. 运行 load_rad_dino.py 将 RAD-DINO 权重转换为 DINOv2 格式：
+#      python load_rad_dino.py --weights-path <safetensors路径> --output-path rad_dino_dinov2_format.pth
+#   2. 将下方 student.pretrained_weights 修改为转换后文件的实际路径
+#   3. 将 train.dataset_path 中的路径修改为实际数据集路径
+# ============================================================
+
+train:
+  # SpineDINO 数据集路径（修改为实际路径，Windows 用正斜杠）
+  dataset_path: SpineDINO:split=TRAIN:root=../../SpinePretrain-v1/spine_dino_dataset:extra=../../SpinePretrain-v1/spine_dino_dataset/extra
+  batch_size_per_gpu: 16        # 显存不足时可调低为 8
+  num_workers: 4                # Windows 出现问题时可改为 0
+  prefetch_factor: 2            # 每个worker预取batch数；内存紧张时设为1
+  OFFICIAL_EPOCH_LENGTH: 200    # 每个"官方epoch"的迭代数（影响 LR 调度）
+  stop_after_iterations: 0      # 0 表示运行完整调度
+  checkpoint_period: 600
+  checkpoint_max_to_keep: 4     # 包括 model_final 在内的每-rank恢复权重总数
+  output_dir: ../../outputs/spine_dino
+  saveckp_freq: 10              # 每 10 个 epoch 保存一次检查点
+  seed: 42
+  cache_dataset: true
+  centering: "centering"
+
+student:
+  arch: vit_base
+  patch_size: 14
+  drop_path_rate: 0.1
+  layerscale: 1.0e-05
+  drop_path_uniform: true
+  # 推荐由 train_spine_dino.py 的 --pretrained-weights 显式传入。
+  pretrained_weights: ''
+  ffn_layer: "mlp"
+  block_chunks: 0
+  qkv_bias: true
+  proj_bias: true
+  ffn_bias: true
+  num_register_tokens: 0        # RAD-DINO 不使用 register tokens
+  interpolate_antialias: false
+  interpolate_offset: 0.1
+
+teacher:
+  momentum_teacher: 0.994       # 比官方默认值(0.992)略高，因数据集较小
+  final_momentum_teacher: 1.0
+  warmup_teacher_temp: 0.04
+  teacher_temp: 0.07
+  warmup_teacher_temp_epochs: 5
+
+optim:
+  epochs: 50                    # 小数据集不需要太多 epoch
+  weight_decay: 0.04
+  weight_decay_end: 0.2
+  base_lr: 0.001                # 微调用较小学习率（官方默认 0.004）
+  lr: 0.
+  warmup_epochs: 5
+  min_lr: 1.0e-06
+  clip_grad: 3.0
+  freeze_last_layer_epochs: 1
+  scaling_rule: sqrt_wrt_1024
+  patch_embed_lr_mult: 0.2
+  layerwise_decay: 0.9
+  adamw_beta1: 0.9
+  adamw_beta2: 0.999
+
+crops:
+  global_crops_scale:
+  - 0.32
+  - 1.0
+  local_crops_number: 8
+  local_crops_scale:
+  - 0.05
+  - 0.32
+  global_crops_size: 224        # 全局裁剪尺寸（显存充裕时可改为 518）
+  local_crops_size: 98
+
+evaluation:
+  eval_period_iterations: 1000

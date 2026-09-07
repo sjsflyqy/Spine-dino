@@ -1,0 +1,30 @@
+model:
+  backbone: dinov2
+  weights: weights/base/dinov2/dinov2_vitb14_pretrain.pth
+  image_height: 896
+  image_width: 448
+  adapter:
+    enabled: true
+    type: lora
+    rank: 8
+    alpha: 16
+    dropout: 0.05
+    target_modules: [qkv, query, key, value]
+training:
+  batch_size: 1
+  epochs: 50
+  learning_rate: 0.001
+  head_learning_rate: 0.001
+  adapter_learning_rate: 0.0001
+  weight_decay: 0.01
+  warmup_epochs: 5
+  gradient_accumulation_steps: 2
+  max_grad_norm: 1.0
+  heatmap_sigma: 1.5
+  workers: 4
+  seed: 42
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.0
+output_dir: outputs/downstream/task07_keypoint_lora/dinov2

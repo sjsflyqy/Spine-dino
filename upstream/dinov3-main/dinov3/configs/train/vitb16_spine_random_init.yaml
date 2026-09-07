@@ -1,0 +1,139 @@
+# DINOv3 ViT-B/16 training from random initialization on spine radiographs.
+#
+# This file is separate from vitb16_spine.yaml so public-weight continued
+# pretraining retains its existing behavior.  It uses the DINOv3 v2 schedules
+# so learning rate scales automatically when switching between 2 and 4 GPUs.
+
+dino:
+  loss_weight: 1.0
+  global_ignore_diagonal: true
+  head_n_prototypes: 16384
+  head_bottleneck_dim: 256
+  head_norm_last_layer: false
+  head_nlayers: 3
+  head_hidden_dim: 2048
+  koleo_loss_weight: 0.1
+  koleo_loss_distributed: false
+  koleo_topk: 1
+  koleo_distributed_replicas: 0
+  force_weight_norm: false
+
+ibot:
+  loss_weight: 1.0
+  mask_sample_probability: 0.5
+  mask_ratio_min_max: [0.1, 0.5]
+  mask_random_circular_shift: false
+  force_masking_even_with_zero_weight: false
+  # DINOv3 requires a separate iBOT head.
+  separate_head: true
+  head_n_prototypes: 16384
+  head_bottleneck_dim: 256
+  head_norm_last_layer: false
+  head_nlayers: 3
+  head_hidden_dim: 2048
+
+train:
+  dataset_path: SpineDINO:split=TRAIN:root=../../SpinePretrain-v1/spine_dino_dataset:extra=../../SpinePretrain-v1/spine_dino_dataset/extra
+  batch_size_per_gpu: 8
+  num_workers: 4
+  prefetch_factor: 1
+  OFFICIAL_EPOCH_LENGTH: 200
+  stop_after_iterations: 0
+  cache_dataset: true
+  checkpointing: false
+  checkpointing_full: false
+  compile: false
+  sharded_eval_checkpoint: false
+  # The current DINOv3 SSL meta-architecture requires Sinkhorn-Knopp.
+  centering: sinkhorn_knopp
+
+student:
+  arch: vit_base
+  patch_size: 16
+  drop_path_rate: 0.1
+  layerscale: 1.0e-05
+  pretrained_weights: ''
+  ffn_layer: mlp
+  ffn_ratio: 4.0
+  qkv_bias: true
+  proj_bias: true
+  ffn_bias: true
+  norm_layer: layernormbf16
+  n_storage_tokens: 4
+  mask_k_bias: true
+  untie_cls_and_patch_norms: false
+  untie_global_and_local_cls_norm: false
+  in_chans: 3
+  pos_embed_type: rope
+  pos_embed_rope_base: 100.0
+  pos_embed_rope_normalize_coords: separate
+  pos_embed_rope_rescale_coords: 2
+  pos_embed_rope_dtype: fp32
+  fp8_enabled: false
+
+teacher:
+  momentum_teacher: 0.992
+  final_momentum_teacher: 1.0
+  warmup_teacher_temp: 0.04
+  teacher_temp: 0.07
+  warmup_teacher_temp_epochs: 30
+
+optim:
+  # The launcher overrides epochs when --target-passes is used.
+  epochs: 100
+  weight_decay: 0.04
+  weight_decay_end: 0.4
+  lr: 0.001
+  warmup_epochs: 30
+  min_lr: 1.0e-06
+  schedule_trunc_extra: 0.0
+  clip_grad: 3.0
+  freeze_last_layer_epochs: 5
+  scaling_rule: sqrt_wrt_1024
+  patch_embed_lr_mult: 0.2
+  dino_head_wd_multiplier: 1.0
+  layerwise_decay: 0.9
+  multi_tensor_optim: true
+  dump_fsdp_weights_path: ''
+  adamw_beta1: 0.9
+  adamw_beta2: 0.999
+
+# DINOv3 schedule-v2 path applies sqrt(global_batch/1024) scaling to LR.
+schedules:
+  lr:
+    start: 0.0
+    peak: 0.001
+    end: 1.0e-06
+    warmup_epochs: 30
+    freeze_last_layer_epochs: 5
+  weight_decay:
+    start: 0.04
+    peak: 0.04
+    end: 0.4
+    warmup_epochs: 0
+  momentum:
+    start: 0.992
+    peak: 0.992
+    end: 1.0
+    warmup_epochs: 0
+  teacher_temp:
+    start: 0.04
+    peak: 0.07
+    end: 0.07
+    warmup_epochs: 30
+
+crops:
+  global_crops_size: 512
+  local_crops_size: 192
+  global_crops_scale: [0.50, 1.00]
+  local_crops_scale: [0.20, 0.50]
+  local_crops_number: 8
+  horizontal_flips: true
+
+evaluation:
+  eval_period_iterations: 5000
+
+checkpointing:
+  period: 5000
+  max_to_keep: 3
+  keep_every: 0

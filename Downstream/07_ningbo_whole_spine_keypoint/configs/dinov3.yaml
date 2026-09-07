@@ -1,0 +1,14 @@
+model:
+  backbone: dinov3
+  weights: weights/base/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth
+  image_height: 896
+  image_width: 448
+training:
+  batch_size: 2
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0
+  heatmap_sigma: 1.5
+  workers: 4
+  seed: 42
+output_dir: outputs/downstream/task07_keypoint_linear/dinov3

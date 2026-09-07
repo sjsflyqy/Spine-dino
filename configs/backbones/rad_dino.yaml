@@ -1,0 +1,5 @@
+model:
+  backbone: rad_dino
+  weights: microsoft/rad-dino
+  image_size: 518
+  freeze_backbone: true

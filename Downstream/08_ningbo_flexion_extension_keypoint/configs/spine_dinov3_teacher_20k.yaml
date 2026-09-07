@@ -1,0 +1,20 @@
+model:
+  backbone: dinov3
+  weights: weights/pretrained/spine_dinov3_vitb16_teacher_20000.pth
+  image_height: 896
+  image_width: 448
+training:
+  batch_size: 4
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0
+  heatmap_sigma: 1.5
+  workers: 4
+  seed: 42
+  early_stopping:
+    enabled: true
+    patience: 20
+    min_delta: 0.01
+evaluation:
+  pixel_spacing_mm: 0.143
+output_dir: outputs/downstream/task08_keypoint_linear/spine_dinov3_teacher_20k

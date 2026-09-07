@@ -1,0 +1,5 @@
+﻿file,line,error
+outputs/upstream/pretrain/dinov2_vitb14_lvd142m_100pass_plan/training_metrics.json,11934,"Expecting ',' delimiter: line 1 column 348 (char 347)"
+outputs/upstream/pretrain/dinov2_vitb14_random_init_100pass_v2/training_metrics.json,13735,Expecting ':' delimiter: line 1 column 66 (char 65)
+outputs/upstream/pretrain/dinov3_vitb16_lvd1689m_100pass_plan/training_metrics.json,8024,Expecting ':' delimiter: line 1 column 542 (char 541)
+outputs/upstream/pretrain/dinov3_vitb16_lvd1689m_100pass_plan/training_metrics.json,26762,Expecting ':' delimiter: line 1 column 386 (char 385)

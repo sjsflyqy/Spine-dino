@@ -1,0 +1,150 @@
+# -----------------------------------------------------------------------------
+# Spine-DINO: local datasets, model artifacts, and experiment outputs
+# -----------------------------------------------------------------------------
+
+# Generated portable datasets. These contain medical images and are transferred
+# to training machines separately; never commit them to the source repository.
+/SpinePretrain-v1/
+/Downstream/data/
+
+# Common medical/data artifacts and dataset archives. Keep reusable metadata
+# (for example YAML, JSON, and CSV reports) tracked unless it is under data/.
+*.dcm
+*.dicom
+*.nii
+*.nii.gz
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.pkl
+*.pickle
+*.mat
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.rar
+
+# Downloaded, converted, and trained model weights.
+/weights/
+*.pt
+*.pth
+*.ckpt
+*.distcp
+*.safetensors
+*.onnx
+*.tflite
+*.pb
+*.rank_[0-9]*
+last_checkpoint*
+
+# Training, evaluation, and application runtime outputs.
+/outputs/
+checkpoints/
+logs/
+results/
+uploads/
+predictions/
+wandb/
+mlruns/
+lightning_logs/
+.hydra/
+events.out.tfevents.*
+slurm-*.out
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Native extensions and compiled objects.
+*.so
+*.pyd
+*.dll
+*.dylib
+*.o
+*.obj
+
+# Packaging and build products.
+build/
+dist/
+site/
+*.egg-info/
+.eggs/
+eggs/
+wheels/
+pip-wheel-metadata/
+MANIFEST
+
+# Virtual environments and local Python configuration.
+.venv/
+/venv/
+/env/
+/ENV/
+.python-version
+pip-log.txt
+
+# Test, coverage, type-checker, and linter caches.
+.pytest_cache/
+.cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+.hypothesis/
+
+# Jupyter/IPython local state.
+.ipynb_checkpoints/
+.ipython/
+
+# -----------------------------------------------------------------------------
+# Local configuration and secrets
+# -----------------------------------------------------------------------------
+
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+certs/
+
+# Codex/agent workspace metadata is machine-local.
+/.agents/
+/.codex/
+
+# -----------------------------------------------------------------------------
+# Editors, operating systems, logs, and temporary files
+# -----------------------------------------------------------------------------
+
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+
+*.log
+*.pid
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej

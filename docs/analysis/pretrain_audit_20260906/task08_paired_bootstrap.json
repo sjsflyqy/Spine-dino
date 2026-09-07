@@ -1,0 +1,47 @@
+[
+  {
+    "run": "teacher_training_151424",
+    "patients": 87,
+    "delta_MRE_mm_new_minus_official": -0.09865574900978513,
+    "paired_cluster_bootstrap_95_percent": [
+      -0.9197114834342646,
+      0.693482896469542
+    ]
+  },
+  {
+    "run": "teacher_training_229999",
+    "patients": 87,
+    "delta_MRE_mm_new_minus_official": -0.6978257830479221,
+    "paired_cluster_bootstrap_95_percent": [
+      -1.4687747823396466,
+      0.09013593919913877
+    ]
+  },
+  {
+    "run": "teacher_training_299999",
+    "patients": 87,
+    "delta_MRE_mm_new_minus_official": -0.7534842345257923,
+    "paired_cluster_bootstrap_95_percent": [
+      -1.6695551950907843,
+      0.12406728978014805
+    ]
+  },
+  {
+    "run": "teacher_training_378562",
+    "patients": 87,
+    "delta_MRE_mm_new_minus_official": -0.4848313243987312,
+    "paired_cluster_bootstrap_95_percent": [
+      -1.3240438359007034,
+      0.40647681424672644
+    ]
+  },
+  {
+    "run": "teacher_training_75712",
+    "patients": 87,
+    "delta_MRE_mm_new_minus_official": -0.7225966276590418,
+    "paired_cluster_bootstrap_95_percent": [
+      -1.6108322167418931,
+      0.18081691293462032
+    ]
+  }
+]

@@ -1,0 +1,17 @@
+model:
+  backbone: dinov2
+  weights: weights/pretrained/spine_rad_dino_maira2_vitb14_teacher_20000.pth
+  image_size: 518
+  freeze_backbone: true
+training:
+  batch_size: 4
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0
+  workers: 4
+  seed: 42
+  early_stopping:
+    enabled: true
+    patience: 20
+    min_delta: 0.0
+output_dir: outputs/downstream/task09_linear/spine_rad_dino_maira2_teacher_20k

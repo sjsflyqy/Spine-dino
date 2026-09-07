@@ -1,0 +1,10 @@
+5872dc6ef67eb6b449db8b507aa94df4b94218f186875cc465aa09034c7070b8  spine-dino/weights/pretrained/spine-dino-v1/model_final.rank_0.pth
+a9a85445b6603d6bb39e045c5e3ad94e0ac0b624d0a7de207db37b6082abdf1a  spine-dino/weights/pretrained/spine-dino-v1/spine_dino_backbone.pth
+4e4487d8ec923dfc44a3d8147eaa704629598d6afdda5fac1783b1f2ce1e3f58  spine-dino/weights/downstream/legacy-keypoint/spine_dino_kp_best.pth
+11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361  spine-dino/weights/base/rad-dino-maira-2-hf/gitattributes
+c537fc995c30e2353f07253899618d60e9eae3d5f82473778602c007c6523b56  spine-dino/weights/base/rad-dino-maira-2-hf/preprocessor_config.json
+930a889b911d2ede69421542c5c314e6b0bfa7566969bfa4c5971bdb70e2f1f6  spine-dino/weights/base/rad-dino-maira-2-hf/config.json
+ceca5cda9b7740e3c720bee009757863a2eb327d13fbdd82abb46427e2d8074e  spine-dino/weights/base/rad-dino-maira-2-hf/README.md
+a620851d09be0cdc5458fbe15aeda2d4a43967600610b371de3b069eb6a27cb1  spine-dino/weights/base/rad-dino-maira-2-hf/model.safetensors
+17694bc66d045524ab4c0cf15765414cdf71cdf507520a97b1c2721303749e67  spine-dino/weights/base/rad-dino-maira-2-hf/LICENSE
+8d25aee15cd43f2c500ed01a17d32e2376500caed84a83a3e9246523141e0b55  spine-dino/weights/initialization/rad_dino_dinov2_format.pth

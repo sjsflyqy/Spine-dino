@@ -1,0 +1,78 @@
+# DINOv3 ViT-B/16 continued self-supervised pretraining on spine radiographs.
+# Crop sizes are divisible by patch size 16 and closely match the RAD-DINO
+# 518/196 high-resolution crop geometry used in the DINOv2 comparison.
+
+train:
+  dataset_path: SpineDINO:split=TRAIN:root=../../SpinePretrain-v1/spine_dino_dataset:extra=../../SpinePretrain-v1/spine_dino_dataset/extra
+  batch_size_per_gpu: 4
+  num_workers: 8
+  prefetch_factor: 2
+  OFFICIAL_EPOCH_LENGTH: 200
+  stop_after_iterations: 0
+  cache_dataset: true
+  checkpointing: false
+  checkpointing_full: false
+  compile: false
+  sharded_eval_checkpoint: false
+  centering: sinkhorn_knopp
+
+student:
+  arch: vit_base
+  patch_size: 16
+  drop_path_rate: 0.1
+  layerscale: 1.0e-05
+  pretrained_weights: ''
+  ffn_layer: mlp
+  ffn_ratio: 4.0
+  qkv_bias: true
+  proj_bias: true
+  ffn_bias: true
+  norm_layer: layernormbf16
+  n_storage_tokens: 4
+  mask_k_bias: true
+  untie_cls_and_patch_norms: false
+  untie_global_and_local_cls_norm: false
+  in_chans: 3
+  pos_embed_type: rope
+  pos_embed_rope_base: 100.0
+  pos_embed_rope_normalize_coords: separate
+  pos_embed_rope_rescale_coords: 2
+  pos_embed_rope_dtype: fp32
+  fp8_enabled: false
+
+teacher:
+  momentum_teacher: 0.994
+  final_momentum_teacher: 1.0
+  warmup_teacher_temp: 0.04
+  teacher_temp: 0.07
+  warmup_teacher_temp_epochs: 10
+
+optim:
+  epochs: 100
+  weight_decay: 0.04
+  weight_decay_end: 0.4
+  lr: 0.001
+  warmup_epochs: 10
+  min_lr: 1.0e-06
+  clip_grad: 3.0
+  freeze_last_layer_epochs: 1
+  scaling_rule: sqrt_wrt_1024
+  patch_embed_lr_mult: 0.2
+  layerwise_decay: 0.9
+  multi_tensor_optim: true
+
+crops:
+  global_crops_size: 512
+  local_crops_size: 192
+  global_crops_scale: [0.50, 1.00]
+  local_crops_scale: [0.20, 0.50]
+  local_crops_number: 8
+  horizontal_flips: true
+
+evaluation:
+  eval_period_iterations: 2000
+
+checkpointing:
+  period: 1000
+  max_to_keep: 3
+  keep_every: 5000
