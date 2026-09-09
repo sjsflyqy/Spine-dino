@@ -1,0 +1,19 @@
+model:
+  backbone: rad_dino_maira2
+  weights: weights/base/rad-dino-maira-2-hf
+  image_height: 896
+  image_width: 448
+  decoder: {intermediate_layers: [2, 5, 8, 11], width: 128, head_width: 128, output_stride: 4, heatmap_sigma: 2.0}
+training:
+  batch_size: 2
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.01
+  gradient_accumulation_steps: 2
+  max_grad_norm: 1.0
+  workers: 4
+  seed: 42
+  early_stopping: {enabled: true, patience: 20, min_delta: 0.01}
+loss: {heatmap: 1.0, center_offset: 5.0, corner_offset: 1.0, segmentation: 1.0}
+evaluation: {pixel_spacing_mm: 0.143}
+output_dir: outputs/downstream/task08_keypoint_decoder/rad_dino_maira2

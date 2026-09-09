@@ -1,0 +1,23 @@
+model:
+  backbone: dinov3
+  weights: weights/base/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth
+  image_height: 896
+  image_width: 448
+  decoder: {intermediate_layers: [2, 5, 8, 11], width: 128, head_width: 128, output_stride: 4, heatmap_sigma: 2.0}
+  adapter: {enabled: true, type: lora, rank: 8, alpha: 16, dropout: 0.05, target_modules: [qkv, query, key, value]}
+training:
+  batch_size: 1
+  epochs: 75
+  learning_rate: 0.001
+  head_learning_rate: 0.001
+  adapter_learning_rate: 0.0001
+  weight_decay: 0.01
+  warmup_epochs: 5
+  gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
+  workers: 4
+  seed: 42
+  early_stopping: {enabled: true, patience: 15, min_delta: 0.01}
+loss: {heatmap: 1.0, center_offset: 5.0, corner_offset: 1.0, segmentation: 1.0}
+evaluation: {pixel_spacing_mm: 0.143}
+output_dir: outputs/downstream/task08_keypoint_decoder_lora/dinov3

@@ -140,12 +140,21 @@ class NativeDinoBackbone(nn.Module):
             self.model = vit_base(
                 patch_size=14, img_size=518, init_values=1.0, block_chunks=0
             )
-            self.model.load_state_dict(
-                torch.load(
-                    weight_path, map_location="cpu", weights_only=True, mmap=True
-                ),
-                strict=True,
+            checkpoint = torch.load(
+                weight_path, map_location="cpu", weights_only=True, mmap=True
             )
+            # SSL initialization files retain architecture metadata and wrap
+            # the actual DINOv2 backbone under ``model``.  Extracted downstream
+            # teacher files are already bare state dictionaries.  Supporting
+            # both formats keeps the downstream CLI compatible with every
+            # checkpoint produced by this repository.
+            state_dict = checkpoint.get("model", checkpoint)
+            if not isinstance(state_dict, dict):
+                raise TypeError(
+                    f"Invalid DINOv2 checkpoint state in {weight_path}: "
+                    f"{type(state_dict).__name__}"
+                )
+            self.model.load_state_dict(state_dict, strict=True)
             self.patch_size = 14
         elif generation == 3:
             source_root = repo_root / "upstream" / "dinov3-main"

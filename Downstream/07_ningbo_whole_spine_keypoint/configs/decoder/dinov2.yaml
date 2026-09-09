@@ -1,0 +1,23 @@
+model:
+  backbone: dinov2
+  weights: weights/base/dinov2/dinov2_vitb14_pretrain.pth
+  image_height: 896
+  image_width: 448
+  decoder: {intermediate_layers: [2, 5, 8, 11], width: 128, head_width: 128, output_stride: 4, heatmap_sigma: 2.0}
+training:
+  batch_size: 1
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.01
+  gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
+  workers: 4
+  seed: 42
+  early_stopping: {enabled: true, patience: 20, min_delta: 0.01}
+loss: &loss
+  heatmap: 1.0
+  center_offset: 5.0
+  corner_offset: 1.0
+  segmentation: 1.0
+  coarse_segmentation: 0.5
+output_dir: outputs/downstream/task07_keypoint_decoder/dinov2
