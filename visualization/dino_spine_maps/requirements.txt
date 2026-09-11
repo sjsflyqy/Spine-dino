@@ -1,0 +1,3 @@
+# Install after the repository's downstream or pretraining requirements.
+matplotlib>=3.8
+

@@ -6,6 +6,7 @@
 # to training machines separately; never commit them to the source repository.
 /SpinePretrain-v1/
 /Downstream/data/
+/image_data/
 
 # Common medical/data artifacts and dataset archives. Keep reusable metadata
 # (for example YAML, JSON, and CSV reports) tracked unless it is under data/.
