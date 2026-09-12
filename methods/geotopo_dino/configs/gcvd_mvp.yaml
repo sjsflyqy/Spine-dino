@@ -1,0 +1,101 @@
+compute_precision:
+  teacher:
+    geom_head:
+      sharding_strategy: SHARD_GRAD_OP
+      mixed_precision:
+        param_dtype: fp16
+        reduce_dtype: fp16
+        buffer_dtype: fp32
+  student:
+    geom_head:
+      sharding_strategy: SHARD_GRAD_OP
+      mixed_precision:
+        param_dtype: fp16
+        reduce_dtype: fp32
+        buffer_dtype: fp32
+
+train:
+  dataset_path: SpineDINO:split=TRAIN:root=SpinePretrain-v1/spine_dino_dataset:extra=SpinePretrain-v1/spine_dino_dataset/extra
+  batch_size_per_gpu: 4
+  num_workers: 4
+  prefetch_factor: 1
+  OFFICIAL_EPOCH_LENGTH: 200
+  stop_after_iterations: 0
+  checkpoint_period: 5000
+  checkpoint_max_to_keep: 2
+  output_dir: outputs/geotopo_dino/gcvd_mvp
+  seed: 42
+  centering: centering
+
+student:
+  arch: vit_base
+  patch_size: 14
+  drop_path_rate: 0.1
+  layerscale: 1.0e-05
+  drop_path_uniform: true
+  pretrained_weights: ''
+  ffn_layer: mlp
+  block_chunks: 0
+  qkv_bias: true
+  proj_bias: true
+  ffn_bias: true
+  num_register_tokens: 0
+  interpolate_antialias: false
+  interpolate_offset: 0.1
+
+teacher:
+  momentum_teacher: 0.994
+  final_momentum_teacher: 1.0
+  warmup_teacher_temp: 0.04
+  teacher_temp: 0.07
+  warmup_teacher_temp_epochs: 5
+
+optim:
+  epochs: 379
+  weight_decay: 0.04
+  weight_decay_end: 0.2
+  base_lr: 0.001
+  lr: 0.0
+  warmup_epochs: 5
+  min_lr: 1.0e-06
+  clip_grad: 3.0
+  freeze_last_layer_epochs: 1
+  scaling_rule: sqrt_wrt_1024
+  patch_embed_lr_mult: 0.2
+  layerwise_decay: 0.9
+  adamw_beta1: 0.9
+  adamw_beta2: 0.999
+
+crops:
+  global_crops_scale: [0.5, 1.0]
+  local_crops_number: 8
+  local_crops_scale: [0.2, 0.5]
+  global_crops_size: 518
+  local_crops_size: 196
+  crop_ratio: [0.75, 1.3333333333333333]
+  horizontal_flip_probability: 0.5
+
+evaluation:
+  eval_period_iterations: 10000
+
+gcvd:
+  enabled: true
+  anchor_size: 518
+  projection_dim: 256
+  projection_hidden_dim: 2048
+  loss_weight: 1.0
+  dense_weight: 1.0
+  region_weight: 0.5
+  warmup_fraction: 0.05
+  use_standard_local_dino: true
+
+masking:
+  anchor_policy: block
+  random_global_policy: block
+
+local_order:
+  enabled: false
+
+tgsr:
+  enabled: false
+
