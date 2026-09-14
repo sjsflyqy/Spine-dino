@@ -6,6 +6,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.init import trunc_normal_
 
+from dinov2.layers import DINOHead
+
 
 class GeometryProjectionHead(nn.Module):
     def __init__(self, in_dim: int, out_dim: int = 256, hidden_dim: int = 2048) -> None:
@@ -27,3 +29,23 @@ class GeometryProjectionHead(nn.Module):
     def forward(self, tokens):
         return F.normalize(self.mlp(tokens), dim=-1, eps=1e-6)
 
+
+class GCVDPrototypeHead(DINOHead):
+    """Independent DINO-style projector/prototype head for dense GCVD."""
+
+    def __init__(
+        self,
+        in_dim: int,
+        out_dim: int,
+        *,
+        hidden_dim: int = 2048,
+        bottleneck_dim: int = 256,
+        nlayers: int = 3,
+    ) -> None:
+        super().__init__(
+            in_dim=in_dim,
+            out_dim=out_dim,
+            hidden_dim=hidden_dim,
+            bottleneck_dim=bottleneck_dim,
+            nlayers=nlayers,
+        )

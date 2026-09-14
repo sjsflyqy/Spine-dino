@@ -6,8 +6,20 @@ compute_precision:
         param_dtype: fp16
         reduce_dtype: fp16
         buffer_dtype: fp32
+    gcvd_proto_head:
+      sharding_strategy: SHARD_GRAD_OP
+      mixed_precision:
+        param_dtype: fp16
+        reduce_dtype: fp16
+        buffer_dtype: fp32
   student:
     geom_head:
+      sharding_strategy: SHARD_GRAD_OP
+      mixed_precision:
+        param_dtype: fp16
+        reduce_dtype: fp32
+        buffer_dtype: fp32
+    gcvd_proto_head:
       sharding_strategy: SHARD_GRAD_OP
       mixed_precision:
         param_dtype: fp16
@@ -81,12 +93,22 @@ evaluation:
 gcvd:
   enabled: true
   anchor_size: 518
+  loss_type: cosine
   projection_dim: 256
   projection_hidden_dim: 2048
+  head_n_prototypes: 16384
+  head_bottleneck_dim: 256
+  head_nlayers: 3
+  head_hidden_dim: 2048
+  teacher_temp: 0.04
+  student_temp: 0.1
+  center_momentum: 0.9
   loss_weight: 1.0
   dense_weight: 1.0
   region_weight: 0.5
+  warmup_type: fraction
   warmup_fraction: 0.05
+  warmup_iterations: 1000
   use_standard_local_dino: true
 
 masking:
@@ -98,4 +120,3 @@ local_order:
 
 tgsr:
   enabled: false
-

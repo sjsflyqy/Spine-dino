@@ -6,7 +6,11 @@ import torch
 from dinov2.data.masking import MaskingGenerator
 
 from methods.geotopo_dino.data.collate import collate_data_and_cast_gcvd
-from methods.geotopo_dino.losses.gcvd_loss import GeometryDistillationLoss
+from methods.geotopo_dino.losses.gcvd_loss import (
+    GCVDPrototypeLoss,
+    GeometryDistillationLoss,
+    compute_gcvd_warmup_scale,
+)
 
 
 def _sample(sample_id: int, n_locals: int = 2, anchor_valid_mask=None):
@@ -86,6 +90,66 @@ class LossTests(unittest.TestCase):
         )
         self.assertLess(abs(output["dense"].item()), 1e-6)
         self.assertLess(abs(output["region"].item()), 1e-6)
+
+    def test_prototype_ce_is_finite_and_center_is_checkpointed(self):
+        module = GCVDPrototypeLoss(
+            8,
+            teacher_temp=0.07,
+            student_temp=0.1,
+            center_momentum=0.5,
+        )
+        teacher_logits = torch.randn(12, 8)
+        probabilities, teacher_diagnostics = module.teacher_probabilities(teacher_logits)
+        torch.testing.assert_close(probabilities.sum(-1), torch.ones(12))
+        self.assertFalse(probabilities.requires_grad)
+        self.assertTrue(torch.isfinite(module.center).all())
+        self.assertGreater(module.center.abs().sum().item(), 0.0)
+
+        student_logits = torch.randn(12, 8, requires_grad=True)
+        loss, student_diagnostics = module(student_logits, probabilities)
+        self.assertTrue(torch.isfinite(loss))
+        self.assertTrue(torch.isfinite(teacher_diagnostics["entropy"]))
+        self.assertTrue(torch.isfinite(student_diagnostics["entropy"]))
+        self.assertIn("active_prototype_ratio", teacher_diagnostics)
+        self.assertIn("active_prototype_ratio", student_diagnostics)
+        loss.backward()
+        self.assertTrue(torch.isfinite(student_logits.grad).all())
+
+        restored = GCVDPrototypeLoss(8)
+        restored.load_state_dict(module.state_dict())
+        torch.testing.assert_close(restored.center, module.center)
+
+        empty_logits = torch.empty(0, 8, requires_grad=True)
+        empty_loss, empty_diagnostics = module(empty_logits, torch.empty(0, 8))
+        self.assertTrue(torch.isfinite(empty_loss))
+        self.assertIn("active_prototype_ratio", empty_diagnostics)
+
+
+class WarmupTests(unittest.TestCase):
+    @staticmethod
+    def _scale(warmup_type, iteration, *, fraction=0.05, fixed=1000):
+        return compute_gcvd_warmup_scale(
+            warmup_type=warmup_type,
+            iteration=iteration,
+            schedule_max_iterations=10000,
+            warmup_fraction=fraction,
+            warmup_iterations=fixed,
+        )
+
+    def test_no_warmup(self):
+        self.assertEqual(self._scale("no_warmup", 0), 1.0)
+
+    def test_fraction_warmup_uses_global_iteration(self):
+        self.assertEqual(self._scale("fraction", 0), 0.0)
+        self.assertEqual(self._scale("fraction", 250), 0.5)
+        self.assertEqual(self._scale("fraction", 500), 1.0)
+        self.assertEqual(self._scale("fraction", 5000), 1.0)
+
+    def test_fixed_iteration_warmup_uses_global_iteration(self):
+        self.assertEqual(self._scale("fixed_iter", 0), 0.0)
+        self.assertEqual(self._scale("fixed_iter", 500), 0.5)
+        self.assertEqual(self._scale("fixed_iter", 1000), 1.0)
+        self.assertEqual(self._scale("fixed_iter", 5000), 1.0)
 
 
 if __name__ == "__main__":

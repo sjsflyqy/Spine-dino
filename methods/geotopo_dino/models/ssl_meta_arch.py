@@ -14,9 +14,14 @@ except ImportError as exc:  # pragma: no cover - training dependency
     raise AssertionError("xFormers is required for training") from exc
 
 from ..geometry.warp import warp_anchor_features_to_local
-from ..losses.gcvd_loss import GeometryDistillationLoss, valid_mean_pool
+from ..losses.gcvd_loss import (
+    GCVDPrototypeLoss,
+    GeometryDistillationLoss,
+    compute_gcvd_warmup_scale,
+    valid_mean_pool,
+)
 from ..masking import BlockMaskPolicy, pack_masks
-from .projection_head import GeometryProjectionHead
+from .projection_head import GCVDPrototypeHead, GeometryProjectionHead
 
 
 class GeoTopoSSLMetaArch(SSLMetaArch):
@@ -32,7 +37,25 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
         self.gcvd_loss_weight = float(cfg.gcvd.loss_weight)
         self.gcvd_dense_weight = float(cfg.gcvd.dense_weight)
         self.gcvd_region_weight = float(cfg.gcvd.region_weight)
+        self.gcvd_loss_type = str(cfg.gcvd.loss_type)
+        self.gcvd_warmup_type = str(cfg.gcvd.warmup_type)
         self.gcvd_warmup_fraction = float(cfg.gcvd.warmup_fraction)
+        self.gcvd_warmup_iterations = int(cfg.gcvd.warmup_iterations)
+
+        if self.gcvd_loss_type not in ("cosine", "prototype_ce"):
+            raise ValueError("gcvd.loss_type must be cosine or prototype_ce")
+        if min(
+            self.gcvd_loss_weight,
+            self.gcvd_dense_weight,
+            self.gcvd_region_weight,
+        ) < 0.0:
+            raise ValueError("GCVD loss weights must be non-negative")
+        self._gcvd_scale(
+            iteration=0,
+            schedule_max_iterations=int(
+                cfg.optim.epochs * cfg.train.OFFICIAL_EPOCH_LENGTH
+            ),
+        )
 
         if bool(cfg.local_order.enabled):
             raise NotImplementedError("local_order is reserved but is not part of the GCVD MVP")
@@ -55,6 +78,24 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
             for parameter in self.teacher.geom_head.parameters():
                 parameter.requires_grad = False
             self.gcvd_loss = GeometryDistillationLoss()
+            if self.gcvd_loss_type == "prototype_ce":
+                prototype_head_kwargs = {
+                    "in_dim": self.embed_dim,
+                    "out_dim": int(cfg.gcvd.head_n_prototypes),
+                    "hidden_dim": int(cfg.gcvd.head_hidden_dim),
+                    "bottleneck_dim": int(cfg.gcvd.head_bottleneck_dim),
+                    "nlayers": int(cfg.gcvd.head_nlayers),
+                }
+                self.student["gcvd_proto_head"] = GCVDPrototypeHead(**prototype_head_kwargs)
+                self.teacher["gcvd_proto_head"] = GCVDPrototypeHead(**prototype_head_kwargs)
+                for parameter in self.teacher.gcvd_proto_head.parameters():
+                    parameter.requires_grad = False
+                self.gcvd_prototype_loss = GCVDPrototypeLoss(
+                    int(cfg.gcvd.head_n_prototypes),
+                    teacher_temp=float(cfg.gcvd.teacher_temp),
+                    student_temp=float(cfg.gcvd.student_temp),
+                    center_momentum=float(cfg.gcvd.center_momentum),
+                )
 
         anchor_policy = str(cfg.masking.anchor_policy)
         random_policy = str(cfg.masking.random_global_policy)
@@ -70,12 +111,28 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
             groups += self.get_maybe_fused_params_for_submodel(module)
         return groups
 
-    def _gcvd_scale(self, progress: float) -> float:
-        if self.gcvd_warmup_fraction <= 0:
-            return 1.0
-        return min(max(progress / self.gcvd_warmup_fraction, 0.0), 1.0)
+    def _gcvd_scale(self, iteration: int, schedule_max_iterations: int) -> float:
+        return compute_gcvd_warmup_scale(
+            warmup_type=self.gcvd_warmup_type,
+            iteration=iteration,
+            schedule_max_iterations=schedule_max_iterations,
+            warmup_fraction=self.gcvd_warmup_fraction,
+            warmup_iterations=self.gcvd_warmup_iterations,
+        )
 
-    def forward_backward(self, images, teacher_temp, progress: float = 1.0):
+    def forward_backward(
+        self,
+        images,
+        teacher_temp,
+        *,
+        iteration: int = 0,
+        schedule_max_iterations: int | None = None,
+    ):
+        if schedule_max_iterations is None:
+            schedule_max_iterations = int(
+                self.cfg.optim.epochs * self.cfg.train.OFFICIAL_EPOCH_LENGTH
+            )
+        progress = float(iteration) / float(max(schedule_max_iterations - 1, 1))
         n_global_crops = 2
         n_local_crops = self.cfg.crops.local_crops_number
         global_crops = images["collated_global_crops"].cuda(non_blocking=True)
@@ -198,15 +255,32 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                     local_grid_size=(local_height, local_width),
                 )
                 teacher_region = valid_mean_pool(aligned_teacher, correspondence_valid)
-                teacher_patch_geometry = self.teacher.geom_head(
-                    aligned_teacher.to(dtype=teacher_anchor_patch.dtype)
-                )
                 teacher_region_geometry = self.teacher.geom_head(
                     teacher_region.to(dtype=teacher_anchor_patch.dtype)
                 )
+                if self.gcvd_loss_type == "cosine":
+                    teacher_patch_geometry = self.teacher.geom_head(
+                        aligned_teacher.to(dtype=teacher_anchor_patch.dtype)
+                    )
+                    teacher_patch_probabilities = None
+                    teacher_prototype_diagnostics = None
+                else:
+                    teacher_patch_geometry = None
+                    valid_teacher_tokens = aligned_teacher.reshape(-1, feature_dim)[
+                        correspondence_valid.reshape(-1)
+                    ]
+                    teacher_gcvd_logits = self.teacher.gcvd_proto_head(
+                        valid_teacher_tokens.to(dtype=teacher_anchor_patch.dtype)
+                    )
+                    (
+                        teacher_patch_probabilities,
+                        teacher_prototype_diagnostics,
+                    ) = self.gcvd_prototype_loss.teacher_probabilities(teacher_gcvd_logits)
             else:
                 teacher_patch_geometry = None
                 teacher_region_geometry = None
+                teacher_patch_probabilities = None
+                teacher_prototype_diagnostics = None
                 correspondence_valid = None
 
             return (
@@ -214,6 +288,8 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 teacher_ibot_targets,
                 teacher_patch_geometry,
                 teacher_region_geometry,
+                teacher_patch_probabilities,
+                teacher_prototype_diagnostics,
                 correspondence_valid,
                 mask_state,
             )
@@ -223,6 +299,8 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
             teacher_ibot_targets,
             teacher_patch_geometry,
             teacher_region_geometry,
+            teacher_patch_probabilities,
+            teacher_prototype_diagnostics,
             correspondence_valid,
             mask_state,
         ) = get_teacher_targets()
@@ -309,26 +387,68 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
         if self.gcvd_enabled:
             student_local_patch = student_local["x_norm_patchtokens"]
             student_region = valid_mean_pool(student_local_patch.float(), correspondence_valid)
-            student_patch_geometry = self.student.geom_head(student_local_patch)
             student_region_geometry = self.student.geom_head(
                 student_region.to(dtype=student_local_patch.dtype)
             )
-            gcvd = self.gcvd_loss(
-                student_patch_embeddings=student_patch_geometry,
-                teacher_patch_embeddings=teacher_patch_geometry,
-                student_region_embeddings=student_region_geometry,
-                teacher_region_embeddings=teacher_region_geometry,
-                valid_mask=correspondence_valid,
+            region_raw_loss = self.gcvd_loss.region_loss(
+                student_region_geometry,
+                teacher_region_geometry,
+                correspondence_valid,
             )
-            schedule_scale = self._gcvd_scale(progress)
-            dense_contribution = self.gcvd_loss_weight * schedule_scale * self.gcvd_dense_weight * gcvd["dense"]
+            if self.gcvd_loss_type == "cosine":
+                student_patch_geometry = self.student.geom_head(student_local_patch)
+                dense_raw_loss = self.gcvd_loss.dense_loss(
+                    student_patch_geometry,
+                    teacher_patch_geometry,
+                    correspondence_valid,
+                )
+                student_prototype_diagnostics = None
+            else:
+                valid_student_tokens = student_local_patch.reshape(-1, self.embed_dim)[
+                    correspondence_valid.reshape(-1)
+                ]
+                student_gcvd_logits = self.student.gcvd_proto_head(valid_student_tokens)
+                dense_raw_loss, student_prototype_diagnostics = self.gcvd_prototype_loss(
+                    student_gcvd_logits,
+                    teacher_patch_probabilities,
+                )
+
+            schedule_scale = self._gcvd_scale(iteration, schedule_max_iterations)
+            dense_contribution = (
+                self.gcvd_loss_weight
+                * schedule_scale
+                * self.gcvd_dense_weight
+                * dense_raw_loss
+            )
             region_contribution = (
-                self.gcvd_loss_weight * schedule_scale * self.gcvd_region_weight * gcvd["region"]
+                self.gcvd_loss_weight
+                * schedule_scale
+                * self.gcvd_region_weight
+                * region_raw_loss
             )
-            loss_dict["gcvd_dense_loss"] = dense_contribution
-            loss_dict["gcvd_region_loss"] = region_contribution
+            metric_reference = dense_raw_loss.detach()
+            loss_dict["gcvd_warmup_scale"] = metric_reference.new_tensor(schedule_scale)
+            loss_dict["gcvd_dense_raw_loss"] = dense_raw_loss.detach()
+            loss_dict["gcvd_region_raw_loss"] = region_raw_loss.detach()
+            loss_dict["gcvd_dense_weighted_loss"] = dense_contribution.detach()
+            loss_dict["gcvd_region_weighted_loss"] = region_contribution.detach()
+            loss_dict["gcvd_valid_ratio"] = correspondence_valid.float().mean()
+            if self.gcvd_loss_type == "prototype_ce":
+                loss_dict["gcvd_teacher_entropy"] = teacher_prototype_diagnostics["entropy"]
+                loss_dict["gcvd_student_entropy"] = student_prototype_diagnostics["entropy"]
+                loss_dict["gcvd_teacher_max_prob"] = teacher_prototype_diagnostics["max_prob"]
+                loss_dict["gcvd_student_max_prob"] = student_prototype_diagnostics["max_prob"]
+                loss_dict["gcvd_teacher_active_prototype_ratio"] = (
+                    teacher_prototype_diagnostics["active_prototype_ratio"]
+                )
+                loss_dict["gcvd_student_active_prototype_ratio"] = (
+                    student_prototype_diagnostics["active_prototype_ratio"]
+                )
             loss_accumulator = loss_accumulator + dense_contribution + region_contribution
 
+        if not torch.isfinite(loss_accumulator.detach()).all():
+            raise FloatingPointError("Non-finite optimization loss detected")
+        loss_dict["optimization_loss"] = loss_accumulator.detach()
         self.backprop_loss(loss_accumulator)
         self.fsdp_synchronize_streams()
         return loss_dict

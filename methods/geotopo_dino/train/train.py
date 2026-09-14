@@ -147,8 +147,12 @@ def do_train(cfg, model, resume: bool = False):
         apply_optim_scheduler(optimizer, lr, wd, last_layer_lr)
 
         optimizer.zero_grad(set_to_none=True)
-        progress = float(iteration) / float(max(schedule_max_iter - 1, 1))
-        loss_dict = model.forward_backward(data, teacher_temp=teacher_temp, progress=progress)
+        loss_dict = model.forward_backward(
+            data,
+            teacher_temp=teacher_temp,
+            iteration=iteration,
+            schedule_max_iterations=schedule_max_iter,
+        )
         if model.fp16_scaler is not None:
             if cfg.optim.clip_grad:
                 model.fp16_scaler.unscale_(optimizer)
@@ -174,12 +178,13 @@ def do_train(cfg, model, resume: bool = False):
             key: value.item() / distributed.get_global_size()
             for key, value in loss_dict.items()
         }
-        if math.isnan(sum(reduced.values())):
-            raise AssertionError("NaN detected")
+        non_finite = {key: value for key, value in reduced.items() if not math.isfinite(value)}
+        if non_finite:
+            raise FloatingPointError(f"Non-finite training metrics detected: {non_finite}")
         metric_logger.update(lr=lr, wd=wd, mom=momentum, last_layer_lr=last_layer_lr)
         metric_logger.update(
             current_batch_size=data["collated_global_crops"].shape[0] / 2,
-            total_loss=sum(reduced.values()),
+            total_loss=reduced["optimization_loss"],
             **reduced,
         )
 
