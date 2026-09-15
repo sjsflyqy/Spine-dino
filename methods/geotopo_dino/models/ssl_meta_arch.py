@@ -95,6 +95,12 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                     teacher_temp=float(cfg.gcvd.teacher_temp),
                     student_temp=float(cfg.gcvd.student_temp),
                     center_momentum=float(cfg.gcvd.center_momentum),
+                    teacher_centering=str(
+                        getattr(cfg.gcvd, "teacher_centering", "centering")
+                    ),
+                    sinkhorn_iterations=int(
+                        getattr(cfg.gcvd, "sinkhorn_iterations", 3)
+                    ),
                 )
 
         anchor_policy = str(cfg.masking.anchor_policy)
@@ -434,6 +440,10 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
             loss_dict["gcvd_region_weighted_loss"] = region_contribution.detach()
             loss_dict["gcvd_valid_ratio"] = correspondence_valid.float().mean()
             if self.gcvd_loss_type == "prototype_ce":
+                loss_dict["gcvd_dense_raw_kl"] = (
+                    dense_raw_loss.detach()
+                    - teacher_prototype_diagnostics["entropy"]
+                )
                 loss_dict["gcvd_teacher_entropy"] = teacher_prototype_diagnostics["entropy"]
                 loss_dict["gcvd_student_entropy"] = student_prototype_diagnostics["entropy"]
                 loss_dict["gcvd_teacher_max_prob"] = teacher_prototype_diagnostics["max_prob"]
@@ -443,6 +453,18 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 )
                 loss_dict["gcvd_student_active_prototype_ratio"] = (
                     student_prototype_diagnostics["active_prototype_ratio"]
+                )
+                loss_dict["gcvd_teacher_marginal_entropy"] = (
+                    teacher_prototype_diagnostics["marginal_entropy"]
+                )
+                loss_dict["gcvd_student_marginal_entropy"] = (
+                    student_prototype_diagnostics["marginal_entropy"]
+                )
+                loss_dict["gcvd_teacher_effective_prototype_ratio"] = (
+                    teacher_prototype_diagnostics["effective_prototype_ratio"]
+                )
+                loss_dict["gcvd_student_effective_prototype_ratio"] = (
+                    student_prototype_diagnostics["effective_prototype_ratio"]
                 )
             loss_accumulator = loss_accumulator + dense_contribution + region_contribution
 

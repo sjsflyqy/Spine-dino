@@ -112,6 +112,8 @@ class LossTests(unittest.TestCase):
         self.assertTrue(torch.isfinite(student_diagnostics["entropy"]))
         self.assertIn("active_prototype_ratio", teacher_diagnostics)
         self.assertIn("active_prototype_ratio", student_diagnostics)
+        self.assertIn("marginal_entropy", teacher_diagnostics)
+        self.assertIn("effective_prototype_ratio", teacher_diagnostics)
         loss.backward()
         self.assertTrue(torch.isfinite(student_logits.grad).all())
 
@@ -123,6 +125,31 @@ class LossTests(unittest.TestCase):
         empty_loss, empty_diagnostics = module(empty_logits, torch.empty(0, 8))
         self.assertTrue(torch.isfinite(empty_loss))
         self.assertIn("active_prototype_ratio", empty_diagnostics)
+
+    def test_sinkhorn_teacher_assignments_are_balanced(self):
+        module = GCVDPrototypeLoss(
+            8,
+            teacher_temp=0.07,
+            teacher_centering="sinkhorn_knopp",
+            sinkhorn_iterations=100,
+        )
+        initial_center = module.center.clone()
+        probabilities, diagnostics = module.teacher_probabilities(torch.randn(64, 8))
+
+        torch.testing.assert_close(probabilities.sum(-1), torch.ones(64))
+        torch.testing.assert_close(
+            probabilities.mean(0),
+            torch.full((8,), 1.0 / 8),
+            atol=1e-3,
+            rtol=1e-3,
+        )
+        torch.testing.assert_close(module.center, initial_center)
+        self.assertTrue(torch.isfinite(diagnostics["entropy"]))
+        self.assertGreater(diagnostics["effective_prototype_ratio"].item(), 0.99)
+
+    def test_prototype_teacher_centering_is_validated(self):
+        with self.assertRaisesRegex(ValueError, "teacher_centering"):
+            GCVDPrototypeLoss(8, teacher_centering="invalid")
 
 
 class WarmupTests(unittest.TestCase):

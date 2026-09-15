@@ -103,6 +103,8 @@ gcvd:
   teacher_temp: 0.04
   student_temp: 0.1
   center_momentum: 0.9
+  teacher_centering: centering
+  sinkhorn_iterations: 3
   loss_weight: 1.0
   dense_weight: 1.0
   region_weight: 0.5

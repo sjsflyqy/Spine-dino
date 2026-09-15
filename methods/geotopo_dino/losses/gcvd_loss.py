@@ -114,7 +114,7 @@ def compute_gcvd_warmup_scale(
 
 
 class GCVDPrototypeLoss(nn.Module):
-    """Centered teacher-student prototype cross entropy for valid GCVD patches."""
+    """Balanced teacher-student prototype cross entropy for valid GCVD patches."""
 
     def __init__(
         self,
@@ -123,6 +123,8 @@ class GCVDPrototypeLoss(nn.Module):
         teacher_temp: float = 0.04,
         student_temp: float = 0.1,
         center_momentum: float = 0.9,
+        teacher_centering: str = "centering",
+        sinkhorn_iterations: int = 3,
     ) -> None:
         super().__init__()
         if out_dim <= 0:
@@ -131,10 +133,18 @@ class GCVDPrototypeLoss(nn.Module):
             raise ValueError("GCVD teacher/student temperatures must be positive")
         if not 0.0 <= center_momentum < 1.0:
             raise ValueError("gcvd.center_momentum must be in [0, 1)")
+        if teacher_centering not in ("centering", "sinkhorn_knopp"):
+            raise ValueError(
+                "gcvd.teacher_centering must be centering or sinkhorn_knopp"
+            )
+        if sinkhorn_iterations <= 0:
+            raise ValueError("gcvd.sinkhorn_iterations must be positive")
         self.out_dim = int(out_dim)
         self.teacher_temp = float(teacher_temp)
         self.student_temp = float(student_temp)
         self.center_momentum = float(center_momentum)
+        self.teacher_centering = str(teacher_centering)
+        self.sinkhorn_iterations = int(sinkhorn_iterations)
         # This buffer belongs to the top-level model state, so FSDP checkpoints
         # restore it together with both GCVD heads and the optimizer state.
         self.register_buffer("center", torch.zeros(1, self.out_dim))
@@ -145,32 +155,51 @@ class GCVDPrototypeLoss(nn.Module):
         *,
         include_usage: bool,
     ) -> dict[str, torch.Tensor]:
+        probabilities = probabilities.float()
         if probabilities.shape[0] == 0:
             zero = probabilities.sum()
             diagnostics = {"entropy": zero, "max_prob": zero}
-            if include_usage:
+        else:
+            entropy = -(
+                probabilities * probabilities.clamp_min(1e-12).log()
+            ).sum(-1).mean()
+            max_prob = probabilities.max(dim=-1).values.mean()
+            diagnostics = {
+                "entropy": entropy,
+                "max_prob": max_prob,
+            }
+        if include_usage:
+            if probabilities.shape[0] == 0:
                 usage = torch.zeros(
                     probabilities.shape[-1],
                     dtype=torch.long,
                     device=probabilities.device,
                 )
-                if dist.is_available() and dist.is_initialized():
-                    dist.all_reduce(usage)
-                diagnostics["active_prototype_ratio"] = usage.gt(0).float().mean()
-            return diagnostics
-        probabilities = probabilities.float()
-        entropy = -(probabilities * probabilities.clamp_min(1e-12).log()).sum(-1).mean()
-        max_prob = probabilities.max(dim=-1).values.mean()
-        diagnostics = {
-            "entropy": entropy,
-            "max_prob": max_prob,
-        }
-        if include_usage:
-            assignments = probabilities.argmax(dim=-1)
-            usage = torch.bincount(assignments, minlength=probabilities.shape[-1])
+            else:
+                assignments = probabilities.argmax(dim=-1)
+                usage = torch.bincount(assignments, minlength=probabilities.shape[-1])
+            probability_sum = probabilities.sum(dim=0)
+            probability_count = torch.tensor(
+                [probabilities.shape[0]],
+                dtype=torch.float32,
+                device=probabilities.device,
+            )
             if dist.is_available() and dist.is_initialized():
                 dist.all_reduce(usage)
+                dist.all_reduce(probability_sum)
+                dist.all_reduce(probability_count)
             diagnostics["active_prototype_ratio"] = usage.gt(0).float().mean()
+            if probability_count.item() == 0:
+                marginal = probability_sum
+            else:
+                marginal = probability_sum / probability_count
+            marginal_entropy = -(
+                marginal * marginal.clamp_min(1e-12).log()
+            ).sum()
+            diagnostics["marginal_entropy"] = marginal_entropy
+            diagnostics["effective_prototype_ratio"] = (
+                marginal_entropy.exp() / probabilities.shape[-1]
+            )
         return diagnostics
 
     @torch.no_grad()
@@ -181,10 +210,56 @@ class GCVDPrototypeLoss(nn.Module):
         if teacher_logits.ndim != 2 or teacher_logits.shape[-1] != self.out_dim:
             raise ValueError("teacher GCVD logits must have shape [valid_patches, prototypes]")
         logits = teacher_logits.float()
-        probabilities = F.softmax((logits - self.center) / self.teacher_temp, dim=-1)
+        if self.teacher_centering == "centering":
+            probabilities = F.softmax((logits - self.center) / self.teacher_temp, dim=-1)
+            self.update_center(logits)
+        else:
+            probabilities = self.sinkhorn_knopp_teacher(logits)
         diagnostics = self._distribution_diagnostics(probabilities, include_usage=True)
-        self.update_center(logits)
         return probabilities.detach(), diagnostics
+
+    @torch.no_grad()
+    def sinkhorn_knopp_teacher(self, teacher_logits: torch.Tensor) -> torch.Tensor:
+        """Return globally balanced assignments for a variable number of valid tokens."""
+        logits = teacher_logits.float()
+        local_count = torch.tensor(
+            [logits.shape[0]], dtype=torch.long, device=logits.device
+        )
+        if dist.is_available() and dist.is_initialized():
+            dist.all_reduce(local_count)
+        global_count = int(local_count.item())
+        if global_count == 0:
+            return logits
+
+        # Per-sample shifts are absorbed by Sinkhorn's column normalization and
+        # prevent a low-temperature teacher from overflowing or producing an
+        # all-zero column.
+        scaled_logits = logits / self.teacher_temp
+        if logits.shape[0] > 0:
+            scaled_logits = scaled_logits - scaled_logits.max(dim=1, keepdim=True).values
+        assignments = torch.exp(scaled_logits).clamp_min(
+            torch.finfo(scaled_logits.dtype).tiny
+        ).t()
+        total_mass = assignments.sum()
+        if dist.is_available() and dist.is_initialized():
+            dist.all_reduce(total_mass)
+        assignments /= total_mass.clamp_min(torch.finfo(assignments.dtype).tiny)
+
+        for _ in range(self.sinkhorn_iterations):
+            prototype_mass = assignments.sum(dim=1, keepdim=True)
+            if dist.is_available() and dist.is_initialized():
+                dist.all_reduce(prototype_mass)
+            assignments /= prototype_mass.clamp_min(
+                torch.finfo(assignments.dtype).tiny
+            )
+            assignments /= self.out_dim
+
+            sample_mass = assignments.sum(dim=0, keepdim=True)
+            assignments /= sample_mass.clamp_min(torch.finfo(assignments.dtype).tiny)
+            assignments /= global_count
+
+        # Columns are probability distributions for local valid tokens.
+        return (assignments * global_count).t()
 
     @torch.no_grad()
     def update_center(self, teacher_logits: torch.Tensor) -> None:

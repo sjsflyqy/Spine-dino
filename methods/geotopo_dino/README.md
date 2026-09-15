@@ -112,6 +112,12 @@ gcvd.loss_type=prototype_ce \
   gcvd.head_n_prototypes=16384 \
   gcvd.teacher_temp=0.04 \
   gcvd.student_temp=0.1
+
+# Change only the GCVD prototype teacher to globally balanced assignments.
+# train.centering remains unchanged for the standard DINO/iBOT objectives.
+gcvd.loss_type=prototype_ce \
+  gcvd.teacher_centering=sinkhorn_knopp \
+  gcvd.sinkhorn_iterations=3
 ```
 
 GCVD logs now distinguish raw objectives from the contributions added to the
@@ -122,7 +128,9 @@ optimization loss:
   and warmup weights;
 - `gcvd_warmup_scale`, `gcvd_valid_ratio`: schedule and geometry diagnostics;
 - prototype mode additionally logs teacher/student entropy, maximum
-  probability, and active-prototype ratios;
+  probability, hard active-prototype ratios, marginal entropy, and soft
+  effective-prototype ratios; `gcvd_dense_raw_kl` subtracts teacher entropy
+  from the dense cross-entropy for a comparable student-teacher mismatch;
 - `optimization_loss` and `total_loss` are the actual scalar sent to backward.
 
 The former ambiguous `gcvd_dense_loss` and `gcvd_region_loss` keys are no
