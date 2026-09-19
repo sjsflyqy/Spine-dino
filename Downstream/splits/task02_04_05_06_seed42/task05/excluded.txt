@@ -1,0 +1,7 @@
+task05/Train/Keypointrcnn_data/images/train/3753-F-049Y1_jpg.rf.bd2f74a48154523773539bfce964388a.jpg
+task05/Train/Keypointrcnn_data/images/train/3808-F-065Y1_jpg.rf.2059d6a7c7be5936136cd11524be2ef8.jpg
+task05/Train/Keypointrcnn_data/images/train/3870-F-060Y1_jpg.rf.9cd781c02a46d552feb979bf2505f789.jpg
+task05/Train/Keypointrcnn_data/images/val/4698-M-056Y1_jpg.rf.f1a150e352a04c6b13efd3053344e0ec.jpg
+task05/Train/Keypointrcnn_data/images/val/4921-M-042Y1_jpg.rf.e66f22e52eac5c3e84fc834f35c6f2eb.jpg
+task05/Train/Keypointrcnn_data/images/val/4924-M-054Y1_jpg.rf.282414e373c83af325c54a5a3ac70a0c.jpg
+task05/Train/Keypointrcnn_data/images/val/4951-F-030Y1_jpg.rf.bf02da5162c37afb191af77f81935be4.jpg

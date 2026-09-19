@@ -1,0 +1,79 @@
+{
+  "seed": 42,
+  "manifest_sha256": "d51489203ea9d642435273abdc636d76570cb35b12d44b1322ad24d92253dbe1",
+  "tasks": {
+    "02": {
+      "images": {
+        "train": 560,
+        "test": 120,
+        "val": 120
+      },
+      "groups": {
+        "train": 280,
+        "val": 60,
+        "test": 60,
+        "excluded": 0
+      },
+      "classes": {}
+    },
+    "04": {
+      "images": {
+        "test": 98,
+        "train": 403,
+        "val": 78
+      },
+      "groups": {
+        "train": 198,
+        "val": 50,
+        "test": 98,
+        "excluded": 0
+      },
+      "classes": {}
+    },
+    "05": {
+      "images": {
+        "test": 16,
+        "train": 491,
+        "excluded": 7,
+        "val": 200
+      },
+      "groups": {
+        "train": 384,
+        "val": 200,
+        "test": 16,
+        "excluded": 7
+      },
+      "classes": {}
+    },
+    "06": {
+      "images": {
+        "train": 236,
+        "test": 51,
+        "val": 51
+      },
+      "groups": {
+        "train": 236,
+        "val": 51,
+        "test": 51,
+        "excluded": 0
+      },
+      "classes": {
+        "normalfinal": {
+          "train": 49,
+          "test": 11,
+          "val": 11
+        },
+        "scolfinal": {
+          "val": 28,
+          "train": 132,
+          "test": 28
+        },
+        "spondfinal": {
+          "train": 55,
+          "val": 12,
+          "test": 12
+        }
+      }
+    }
+  }
+}

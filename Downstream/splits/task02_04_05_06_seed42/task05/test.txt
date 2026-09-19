@@ -1,0 +1,16 @@
+task05/Test/3729-F-067Y1.jpg
+task05/Test/3753-F-049Y1.jpg
+task05/Test/3808-F-065Y1.jpg
+task05/Test/3836-F-020Y1.jpg
+task05/Test/3870-F-060Y1.jpg
+task05/Test/4093-F-083Y1.jpg
+task05/Test/4321-F-081Y1.jpg
+task05/Test/4367-M-049Y1.jpg
+task05/Test/4426-M-048Y1.jpg
+task05/Test/4622-F-053Y1.jpg
+task05/Test/4641-F-020Y1.jpg
+task05/Test/4662-F-044Y1.jpg
+task05/Test/4698-M-056Y1.jpg
+task05/Test/4921-M-042Y1.jpg
+task05/Test/4924-M-054Y1.jpg
+task05/Test/4951-F-030Y1.jpg

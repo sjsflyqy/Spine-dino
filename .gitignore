@@ -2,6 +2,9 @@
 # Spine-DINO: local datasets, model artifacts, and experiment outputs
 # -----------------------------------------------------------------------------
 
+# Markdown documents are kept locally.
+*.md
+
 # Generated portable datasets. These contain medical images and are transferred
 # to training machines separately; never commit them to the source repository.
 /SpinePretrain-v1/

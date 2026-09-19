@@ -1,0 +1,51 @@
+task06/NormalFinal/N12,N,M,13_1_0.jpg
+task06/NormalFinal/N17,N,M,19_1_0.jpg
+task06/NormalFinal/N25,N,F,21_1_0.jpg
+task06/NormalFinal/N3,N,M,22_1_0.jpg
+task06/NormalFinal/N32,N,F,F_1_0.jpg
+task06/NormalFinal/N38,N,F,33_1_0.jpg
+task06/NormalFinal/N44,N,M,8_1_0.jpg
+task06/NormalFinal/N5,N,F,31_1_0.jpg
+task06/NormalFinal/N52,N,47,F_1_0.jpg
+task06/NormalFinal/N55,N,33,F_1_0.jpg
+task06/NormalFinal/N58,N,43,M_1_0.jpg
+task06/ScolFinal/N10, Rt TAIS, M, 16 yrs.jpg
+task06/ScolFinal/N101, Rt TAIS, F, 15  Yrs.jpg
+task06/ScolFinal/N108, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N109, Rt TAIS, F, 13 Yrs.jpg
+task06/ScolFinal/N11,S,21,F_1_1.jpg
+task06/ScolFinal/N122, Rt TAIS, F, 15 Yrs.jpg
+task06/ScolFinal/N128, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N129, Lt TL AIS, F, 14 Yrs.jpg
+task06/ScolFinal/N131, Rt TAIS, M, 15 Yrs.jpg
+task06/ScolFinal/N133, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N140, Rt TAIS, F, 15 Yrs.jpg
+task06/ScolFinal/N16, Rt TAIS, F, 15 yrs.jpg
+task06/ScolFinal/N2,S,5,F_1_0.jpg
+task06/ScolFinal/N34,S,12,F_1_0.jpg
+task06/ScolFinal/N37,S,12,M_1_0.jpg
+task06/ScolFinal/N38, Rt TAIS, F, 12 yrs.jpg
+task06/ScolFinal/N39,S,18,F_1_0.jpg
+task06/ScolFinal/N40, Rt TAIS, F, 13 yrs.jpg
+task06/ScolFinal/N49, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N6, Rt TAIS, M, 16 yrs.jpg
+task06/ScolFinal/N62, Rt TAIS, F, 16 Yrs.jpg
+task06/ScolFinal/N67, Rt TAIS, F, 11 Yrs.jpg
+task06/ScolFinal/N7,S,12,F_1_0.jpg
+task06/ScolFinal/N74, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N78, Rt TAIS, F, 12 Yrs.jpg
+task06/ScolFinal/N9,S,15,F_1_0.jpg
+task06/ScolFinal/N95,Rt TAIS, M, 15 Yrs.jpg
+task06/ScolFinal/N96, Lt TL AIS, F, 16 Yrs.jpg
+task06/SpondFinal/N13,S,51,M_1003_2.jpg
+task06/SpondFinal/N17, Olisthesis L4-5, F, 58 Yrs.jpg
+task06/SpondFinal/N20, Olisthesis L5-S1, F, 34 Yrs.jpg
+task06/SpondFinal/N24,S,64,M_1001_0.jpg
+task06/SpondFinal/N29, Olisthesis L4-5, F, 53 Yrs.jpg
+task06/SpondFinal/N33, Olisthesis L4-5, F, 34 Yrs.jpg
+task06/SpondFinal/N35, Olisthesis L5-S1, F, 23 Yrs.jpg
+task06/SpondFinal/N36,S,65,M_1003_2.jpg
+task06/SpondFinal/N39, Olisthesis L5-S1, F, 45 Yrs.jpg
+task06/SpondFinal/N4,S,59,F_1003_2.jpg
+task06/SpondFinal/N43,S,66,F_1003_2.jpg
+task06/SpondFinal/N48, Olisthesis L3-4, L4-5, L5-S1, F, 55 Yrs.jpg

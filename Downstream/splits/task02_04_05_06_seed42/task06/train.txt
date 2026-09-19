@@ -1,0 +1,236 @@
+task06/NormalFinal/N1,N,40,M_1_0.jpg
+task06/NormalFinal/N1,N,F,21_1_0.jpg
+task06/NormalFinal/N11,N,F,26_1_0.jpg
+task06/NormalFinal/N12,N,F,14_1_0.jpg
+task06/NormalFinal/N13,N,F,15_1_0.jpg
+task06/NormalFinal/N16,N,M,17_1_0.jpg
+task06/NormalFinal/N18,N,F,13_1_0.jpg
+task06/NormalFinal/N18,N,M,11_1_0.jpg
+task06/NormalFinal/N19,N,M,19_1_0.jpg
+task06/NormalFinal/N2,N,18,M_1_0.jpg
+task06/NormalFinal/N2,N,F,17_1_0.jpg
+task06/NormalFinal/N20,N,F,21_1_0.jpg
+task06/NormalFinal/N21,N,F,17_1_0.jpg
+task06/NormalFinal/N24,N,M,12_1_0.jpg
+task06/NormalFinal/N26,N,F,26_1_0.jpg
+task06/NormalFinal/N3,N,M,14_1_0.jpg
+task06/NormalFinal/N30,N,M,6_1_0.jpg
+task06/NormalFinal/N31,N,F,12 KA00594212_1_0.jpg
+task06/NormalFinal/N33,N,F,20_1_0.jpg
+task06/NormalFinal/N34,N,M,23_1_0.jpg
+task06/NormalFinal/N35,N,F,5_1_0.jpg
+task06/NormalFinal/N35,N,M,9 MONTHS_1_0.jpg
+task06/NormalFinal/N37,N,M,15_1_0.jpg
+task06/NormalFinal/N38,N,F,11_1_0.jpg
+task06/NormalFinal/N39,N,M,5_1_2.jpg
+task06/NormalFinal/N4,N,18,M_1_0.jpg
+task06/NormalFinal/N40,N,F,25_1_0.jpg
+task06/NormalFinal/N41,N,F,22_1_0.jpg
+task06/NormalFinal/N43,N,F,24_1_0.jpg
+task06/NormalFinal/N45,N,M,36_1_0.jpg
+task06/NormalFinal/N46,N,M,22_1_0.jpg
+task06/NormalFinal/N49,N,F,50_1_0.jpg
+task06/NormalFinal/N5,N,14,M_1_0.jpg
+task06/NormalFinal/N53,N,36,F_1_0.jpg
+task06/NormalFinal/N56,N,22,F_1_0.jpg
+task06/NormalFinal/N57,N,22,F_1_2.jpg
+task06/NormalFinal/N59,N,34M,F_1_0.jpg
+task06/NormalFinal/N6,N,17,M_1_0.jpg
+task06/NormalFinal/N6,N,F,15_1_0.jpg
+task06/NormalFinal/n61,N,33,F_1_0.jpg
+task06/NormalFinal/N63,N,16,M_1_0.jpg
+task06/NormalFinal/N64,N,8,M_1_0.jpg
+task06/NormalFinal/N65,N,10,F_1_0.jpg
+task06/NormalFinal/N66,N,6,F_1_0.jpg
+task06/NormalFinal/N67,N,21,F_1_0.jpg
+task06/NormalFinal/N67,N,5,M_1_0.jpg
+task06/NormalFinal/N7,N,M,8_1_0.jpg
+task06/NormalFinal/N8,N,F,56_1_0.jpg
+task06/NormalFinal/N9,N,F,13_1_0.jpg
+task06/ScolFinal/N1,S,20,F_1_0.jpg
+task06/ScolFinal/N100, Rt TAIS, F, 21 Yrs.jpg
+task06/ScolFinal/N102, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N103, Rt TAIS, F, 16 Yrs.jpg
+task06/ScolFinal/N104, Lt TL AIS, F, 20 Yrs.jpg
+task06/ScolFinal/N105, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N106, Rt TAIS, M, 12 Yrs.jpg
+task06/ScolFinal/N107, Rt TAIS, F, 13 Yrs.jpg
+task06/ScolFinal/N11, Rt TL AIS, F, 14 yrs.jpg
+task06/ScolFinal/N111, Rt TAIS, F, 13 Yrs.jpg
+task06/ScolFinal/N112, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N113, Rt TL AIS, M, 15 Yrs.jpg
+task06/ScolFinal/N114, Lt LAIS, F, 13 Yrs.jpg
+task06/ScolFinal/N115, Rt T and Lt L AIS, F, 10 Yrs.jpg
+task06/ScolFinal/N116, Rt TLAIS, F, 17 Yrs.jpg
+task06/ScolFinal/N117, Rt TAIS, F, 12 Yrs.jpg
+task06/ScolFinal/N118, Rt TAIS, F, 15 Yrs.jpg
+task06/ScolFinal/N119, Rt AIS, M, 18 Yrs.jpg
+task06/ScolFinal/N12, Lt TAIS, F, 12 yrs.jpg
+task06/ScolFinal/N12,S,19,F_1_0.jpg
+task06/ScolFinal/N120, Rt T and Lt L AIS, F, 15 yrs.jpg
+task06/ScolFinal/N121, Lt TAIS, F, 18.jpg
+task06/ScolFinal/N123, Rt TL AIS, F, 16 Yrs.jpg
+task06/ScolFinal/N125, Rt TAIS, F, 15 Yrs.jpg
+task06/ScolFinal/N126, Rt TAIS, F, 13 Yrs.jpg
+task06/ScolFinal/N127, Rt TAIS, F, 18 Yrs.jpg
+task06/ScolFinal/N13, Rt T and Lt L AIS, F, 14 Yrs.jpg
+task06/ScolFinal/N13, Rt T and Lt L AIS, M, 14 Yrs.jpg
+task06/ScolFinal/N13,S,15,F_1_0.jpg
+task06/ScolFinal/N130, Lt TAIS, F, 11 Yrs.jpg
+task06/ScolFinal/N132, Rt TAIS, M, 15 Yrs.jpg
+task06/ScolFinal/N134, Rt TAIS, F, 12 Yrs.jpg
+task06/ScolFinal/N135, Lt T and Rt L AIS, F, 18 Yrs.jpg
+task06/ScolFinal/N136, Rt TAIS, F, 13 Yrs.jpg
+task06/ScolFinal/N137, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N138, Rt TAIS, F, 15 Yrs.jpg
+task06/ScolFinal/N139, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N14, Rt TAIS, F, 14 yrs.jpg
+task06/ScolFinal/N141, Rt TAIS, F, 15 Yrs.jpg
+task06/ScolFinal/N142, Rt TL AIS, F, 15 Yrs.jpg
+task06/ScolFinal/N143, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N144, Rt T and LT L AIS, M, 15 Yrs.jpg
+task06/ScolFinal/N145, Rt TAIS, M, 14 Yrs.jpg
+task06/ScolFinal/N146, Rt TAIS, M, 16 Yrs.jpg
+task06/ScolFinal/N15, Rt TAIS, F, 14 yrs.jpg
+task06/ScolFinal/N15,S,14,M_1_0.jpg
+task06/ScolFinal/N16,S,14,M_1_0.jpg
+task06/ScolFinal/N17,S,F.17_1_0.jpg
+task06/ScolFinal/N18, Rt TAIS, F, 14 yrs.jpg
+task06/ScolFinal/N19, Rt TL AIS, F, 23 yrs.jpg
+task06/ScolFinal/N19,S,5,F_1_1.jpg
+task06/ScolFinal/N2, Lt T and Rt L AIS, M, 17 yrs.jpg
+task06/ScolFinal/N20, Rt TAIS, F 17 yrs.jpg
+task06/ScolFinal/N20,S,F,35_1_0.jpg
+task06/ScolFinal/N21,S,16,F_1_0.jpg
+task06/ScolFinal/N22, Lt TL AIS, F, 14 yrs.jpg
+task06/ScolFinal/N22,S,12,M_1_0.jpg
+task06/ScolFinal/N23,S,10,F_1_0.jpg
+task06/ScolFinal/N24, Lt TL AIS, F, 24 yrs.jpg
+task06/ScolFinal/N24,S,17,M_1_0.jpg
+task06/ScolFinal/N25, Rt T and Lt L AIS, F, 22 yrs.jpg
+task06/ScolFinal/N25,S,14,M_1_0.jpg
+task06/ScolFinal/N26, Rt TAIS, F, 11 yrs.jpg
+task06/ScolFinal/N26,S,15,F_1_0.jpg
+task06/ScolFinal/N27, Lt LAIS, F, 14 yrs.jpg
+task06/ScolFinal/N27,S,35,F_1_0.jpg
+task06/ScolFinal/N28,S,16,F_1_0.jpg
+task06/ScolFinal/N29, Rt T and Lt L AIS, 14 yrs.png
+task06/ScolFinal/N29,S,12,M_1_0.jpg
+task06/ScolFinal/N30, Rt T and Lt L AIS, F, 12 yrs.jpg
+task06/ScolFinal/N30,S,10,F_1_0.jpg
+task06/ScolFinal/N31, Lt LAIS, F, 15 yrs.jpg
+task06/ScolFinal/N31,S,17,M_1_0.jpg
+task06/ScolFinal/N32, Rt TAIS, F, 13 yrs.jpg
+task06/ScolFinal/N33, Rt TAIS, F, 11 yrs.jpg
+task06/ScolFinal/N35, Rt TAIS, F, 15 yrs.jpg
+task06/ScolFinal/N35,S,13,F_1_0.jpg
+task06/ScolFinal/N36, Rt TAIS, F, 12 yrs.jpg
+task06/ScolFinal/N37, Lt TL AIS, F, 20 yrs.jpg
+task06/ScolFinal/N38,S,14,F_1_0.jpg
+task06/ScolFinal/N39, Rt TAIS, F, 16 Yrs.JPG
+task06/ScolFinal/N4, Rt TAIS, F, 12 yrs.jpg
+task06/ScolFinal/N4,S,16,F_1_0.jpg
+task06/ScolFinal/N42, Rt TAIS, F, 14 yrs.jpg
+task06/ScolFinal/N43, Rt TAIS, F, 16 Yrs.jpg
+task06/ScolFinal/N44, Rt TAIS, F, 11 yrs.jpg
+task06/ScolFinal/N45, Rt T and Lt L AIS, F, 13 yrs.jpg
+task06/ScolFinal/N46, Rt TAIS, F, 11 yrs.jpg
+task06/ScolFinal/N5, Rt TAIS, F, 13 yrs.jpg
+task06/ScolFinal/N5,S,16,F_1_0.jpg
+task06/ScolFinal/N51, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N52, Rt TAIS, F, 11 Yrs.jpg
+task06/ScolFinal/N53, Lt LAIS, F, 18 Yrs.jpg
+task06/ScolFinal/N55, Lt TAIS, F, 15 Yrs.jpg
+task06/ScolFinal/N56, Rt LAIS, M, 16 Yrs.jpg
+task06/ScolFinal/N57, Rt TAIS, F, 15 Yrs.jpg
+task06/ScolFinal/N58, Lt TL AIS, F, 14 Yrs.jpg
+task06/ScolFinal/N59, Rt TAIS, F, 17 Yrs.jpg
+task06/ScolFinal/N60, Rt TAIS, M, 18 Yrs.jpg
+task06/ScolFinal/N61, Rt TAIS, F 16 Yrs.jpg
+task06/ScolFinal/N63, Rt TAIS, F, 12 Yrs.jpg
+task06/ScolFinal/N64, Rt TAIS, F, 15 Yrs.jpg
+task06/ScolFinal/N66, Rt TAIS, M, 12 Yrs.jpg
+task06/ScolFinal/N68, Rt TAIS, F, 12 yrs.jpg
+task06/ScolFinal/N69, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N70, Rt TAIS, F, 14 yrs.jpg
+task06/ScolFinal/N71, Lt TL AIS, F, 16 Yrs.jpg
+task06/ScolFinal/N72, Rt TAIS, F, 17 Yrs.jpg
+task06/ScolFinal/N73, Lt LAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N75, Rt T and Lt L AIS, M, 17 Yrs.jpg
+task06/ScolFinal/N76, Rt T and L L AIS, F, 13 Yrs.jpg
+task06/ScolFinal/N77, Lt LAIS, F, 16 Yrs.jpg
+task06/ScolFinal/N79, Lt T and Rt L AIS, M, 15 Yrs.jpg
+task06/ScolFinal/N8,S,14,F_1_0.jpg
+task06/ScolFinal/N80, Lt TAIS, M, 13 Yrs.jpg
+task06/ScolFinal/N81, Rt TAIS, F, 12 Yrs.jpg
+task06/ScolFinal/N82, Rt TAIS, F, 12 Yrs.jpg
+task06/ScolFinal/N83, Rt TLAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N84, Rt TAIS, F, 13 Yrs.jpg
+task06/ScolFinal/N85, Rt TAIS, F, 13 Yrs.jpg
+task06/ScolFinal/N86, Rt TAIS, F, 13 Yrs.jpg
+task06/ScolFinal/N87, Rt TAIS, F, 16 Yrs.jpg
+task06/ScolFinal/N88, Rt TAIS, M, 15 Yrs.jpg
+task06/ScolFinal/N89, Rt TAIS, F, 16 Yrs.jpg
+task06/ScolFinal/N9, Rt TAIS, F 13 yrs.jpg
+task06/ScolFinal/N90, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N91, Rt TAIS, M, 15 Yrs.jpg
+task06/ScolFinal/N92, Lt LIS, F, 16 Yrs.jpg
+task06/ScolFinal/N93, Rt TL AIS, F, 14 Yrs.jpg
+task06/ScolFinal/N97, Lt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N98, Rt TAIS, F, 14 Yrs.jpg
+task06/ScolFinal/N99, Rt TAIS, F, 17 Yrs.jpg
+task06/SpondFinal/N1, Olisthesis L5-S1, F, 34 yrs.jpg
+task06/SpondFinal/N10,S,63,F_1003_2.jpg
+task06/SpondFinal/N11, Olisthesis. L4-5, M, 48 Yrs.jpg
+task06/SpondFinal/N11,S,49,F_1002_1.jpg
+task06/SpondFinal/N12, Olisthesis L5-S1, M, 20 Yrs.jpg
+task06/SpondFinal/N12,S,F,56_1_1.jpg
+task06/SpondFinal/N13, Olisthesis L4-5, F, 60 yrs.jpg
+task06/SpondFinal/N14, Olisthesis L4-5, M, 48 Yrs.jpg
+task06/SpondFinal/N14,S,59,F_1002_1.jpg
+task06/SpondFinal/N15, Olisthesis L4-5, F, 33 Yrs.jpg
+task06/SpondFinal/N15,S,63.M_1003_2.jpg
+task06/SpondFinal/N16, Olisthesis L4-5, F, 52 Yrs.jpg
+task06/SpondFinal/N16,S,59,F_1_3.jpg
+task06/SpondFinal/N18, Olisthesis L4-5, F, 56 Yrs.jpg
+task06/SpondFinal/N18,S,72,M_1002_3.jpg
+task06/SpondFinal/N19,S,54,F_1_0.jpg
+task06/SpondFinal/N2, Olisthesis L4-5, F, 64 yrs.png
+task06/SpondFinal/N2,S,58,M_1003_2.jpg
+task06/SpondFinal/N2,S,N,34_1_0.jpg
+task06/SpondFinal/N20,S,79.F_1003_2.jpg
+task06/SpondFinal/N21,S,47,M_1001_0.jpg
+task06/SpondFinal/N22,S,72,F_1_0.jpg
+task06/SpondFinal/N23,S,78,M_1001_0.jpg
+task06/SpondFinal/N24, Olisthesis L4-5, F, 35 Yrs.jpg
+task06/SpondFinal/N25, Olisthesis L4-5, F, 50 Yrs.jpg
+task06/SpondFinal/N25,S,72,F_1_0.jpg
+task06/SpondFinal/N26, Olisthesis L3-4, F, 52 Yrs.jpg
+task06/SpondFinal/N26,S,61,M_1003_2.jpg
+task06/SpondFinal/N27, Olisthesis L4-5, M, 61 Yrs.jpg
+task06/SpondFinal/N27,S,61,M_1003_2.jpg
+task06/SpondFinal/N28, Olisthesis L4-5, M, 42 Yrs.jpg
+task06/SpondFinal/N3,S,48,F_1001_0.jpg
+task06/SpondFinal/N30, Olisthesis L3-4 and L4-5, F, 48 Yrs.jpg
+task06/SpondFinal/N31,S,77,F_1_0.jpg
+task06/SpondFinal/N32, Olisthesis L4-5, F, 65 Yrs.jpg
+task06/SpondFinal/N32,S,53,F_1_0.jpg
+task06/SpondFinal/N33,S,66,M_1_0.jpg
+task06/SpondFinal/N34,S,70,M_1001_0.jpg
+task06/SpondFinal/N37, Olisthesis L5-S1, F, 48 Yrs.jpg
+task06/SpondFinal/N37,S,53,M_1_0.jpg
+task06/SpondFinal/N38,S,79,M_1002_1.jpg
+task06/SpondFinal/N40, Olisthesis L5-S1, M, 15 Yrs.jpg
+task06/SpondFinal/N41,S,54,M_1_0.jpg
+task06/SpondFinal/N42,S,59,M_1016_6.jpg
+task06/SpondFinal/N44, Olisthesis L4-5, F, 59 Yrs.jpg
+task06/SpondFinal/N44,S,54,F_1_0.jpg
+task06/SpondFinal/N46, Olisthesis L4-5, M, 63 Yrs.jpg
+task06/SpondFinal/N48,S,63,F_1_0.jpg
+task06/SpondFinal/N48,S,71,M_1_0.jpg
+task06/SpondFinal/N5,S,30,F_1003_2.jpg
+task06/SpondFinal/N6, Olisthesis L4-5, F, 60 Yrs.jpg
+task06/SpondFinal/N6,S,49,F_1001_0.jpg
+task06/SpondFinal/N8,S,75,M_1_0.jpg
+task06/SpondFinal/N9,S,71,M_1_0.jpg
+task06/SpondFinal/NS,S,44,F_1002_1.jpg
