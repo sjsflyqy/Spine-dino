@@ -136,3 +136,105 @@ optimization loss:
 The former ambiguous `gcvd_dense_loss` and `gcvd_region_loss` keys are no
 longer emitted. Prototype experiments must use a new output directory rather
 than resume a cosine checkpoint.
+
+## Optional pixel reconstruction using the iBOT mask
+
+`pixel_reconstruction.enabled` defaults to `false`. A configuration without this
+section also uses the original training path: no decoder parameters, forward,
+pixel losses, optimizer groups, or pixel logs are created. The augmentation,
+iBOT mask policy and teacher EMA module list are unchanged.
+
+When enabled, the student-only `student_aux.pixel_decoder` consumes the complete
+`x_norm_patchtokens` sequence from the existing masked global forward. It uses
+a projection, fixed 2-D position encoding, two 256-wide Transformer blocks by
+default, and a linear pixel predictor. It does not delete/reorder tokens or add
+new mask tokens. Both global views are reconstructed in their original order;
+local crops have no reconstruction branch. There is no second backbone forward.
+
+The target is `collated_global_crops`, exactly the **augmented, normalized input
+received by the teacher**. This includes existing blur/intensity augmentations;
+it is not the original pre-augmentation radiograph. MSE is computed in FP32 only
+at final iBOT-masked, valid positions. Anchor padding is excluded. Each selected
+patch has equal weight across the distributed batch (patches with more pixels
+are first averaged internally). Ranks with zero selected patches still execute
+the decoder and participate in synchronization with zero local contribution.
+
+The loss is `existing_loss + loss_weight * warmup_scale * pixel_loss`. With
+`warmup_iterations: 1000`, the scale is zero at iteration 0 and reaches one at
+global iteration 1000. Set it to zero for no warmup. The default loss weight of
+0.1 is an experimental starting value, not a calibrated balance.
+
+`norm_pix_loss: false` predicts normalized input intensities directly; the
+optional `true` setting additionally standardizes each target patch as in MAE.
+The decoder uses linear outputs, without sigmoid. FSDP precision defaults to the
+student DINO head settings (FP16 parameters / FP32 gradient reduction in the
+default config); an explicit `compute_precision.student_aux.pixel_decoder`
+section can override this with the same schema as other FSDP modules.
+
+Start a pixel experiment (same schedule/views as the MVP):
+
+```bash
+torchrun --standalone --nnodes=1 --nproc-per-node=2 --module \
+  methods.geotopo_dino.train.train \
+  --config-file methods/geotopo_dino/configs/gcvd_pixel.yaml \
+  --output-dir outputs/geotopo_dino/gcvd_pixel --no-resume \
+  student.pretrained_weights=weights/initialization/dinov2_vitb14_dinov2_format.pth
+```
+
+You can also use the existing MVP config and pass
+`pixel_reconstruction.enabled=true`. Conversely, pass
+`pixel_reconstruction.enabled=false` to disable it. The GCVD switch is independent:
+`gcvd.enabled=false` gives the same anchor/global view setup with DINO, iBOT,
+KoLeo and optional pixel reconstruction. It does not restore the baseline's
+two-random-global augmentation policy.
+
+Resume a pixel run using the same configuration/output directory and omit
+`--no-resume`. Full training checkpoints include decoder and optimizer state;
+the teacher export used downstream remains decoder-free. A checkpoint signature
+rejects changed decoder settings, enabled flags or `norm_pix_loss` before state
+is loaded. Old decoder-free checkpoints remain compatible with the disabled
+branch. To switch configurations, start a new output directory with `--no-resume`
+and use a backbone-only initialization file in the existing
+`student.pretrained_weights` format (`{"model": backbone_state_dict}`), rather
+than an incompatible recovery checkpoint in `MODEL.WEIGHTS`.
+
+Additional logs:
+
+- `pixel_raw_loss`: before weighting; its distributed average is the global masked-patch MSE.
+- `pixel_weighted_loss`: the contribution added to the total optimization loss.
+- `pixel_warmup_scale`: the current scale, computed from the restored global iteration.
+- `pixel_masked_patch_count`: average selected patch count per rank, after the existing logger reduction.
+
+Set `pixel_reconstruction.visualization_period=1000` to save up to two masked
+views from rank zero under `pixel_reconstruction/step_XXXXXXX.png`. Columns show
+the target, mask illustration, decoder-only prediction, a visible-target/masked-
+prediction composite, and relative masked MSE. Visible-position decoder outputs
+are unsupervised. With `norm_pix_loss=true`, converting predictions back to image
+intensities uses **ground-truth patch statistics**, explicitly labeled in the
+figure; it is not an independent recovery of absolute brightness. The error
+panel is normalized independently per image, so use scalar logs for comparisons.
+Visualization defaults to off and only runs on selected logging steps.
+
+CPU checks (the meta-architecture integration tests replace only CUDA-only
+encoder/head-packing operations with small CPU stand-ins):
+
+```bash
+python -m unittest discover -s methods/geotopo_dino/tests -v
+```
+
+Real CUDA/FSDP synthetic smoke test, requiring no images or pretrained weights:
+
+```bash
+torchrun --standalone --nproc-per-node=1 --module \
+  methods.geotopo_dino.tests.smoke_pixel_fsdp \
+  --output-dir /tmp/geotopo_pixel_fsdp_1gpu
+
+torchrun --standalone --nproc-per-node=2 --module \
+  methods.geotopo_dino.tests.smoke_pixel_fsdp \
+  --output-dir /tmp/geotopo_pixel_fsdp_2gpu
+```
+
+This exercises the actual ViT-small, xFormers, mixed precision, auxiliary FSDP,
+gradient clipping, teacher EMA, rank synchronization, and checkpoint restoration.
+Before a full run, also use the existing 20-update data-pipeline smoke command
+with `gcvd_pixel.yaml` and a fresh output directory.

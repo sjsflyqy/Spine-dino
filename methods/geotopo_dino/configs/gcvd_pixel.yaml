@@ -1,3 +1,4 @@
+# Same training/views as gcvd_mvp.yaml, with pixel reconstruction enabled.
 compute_precision:
   teacher:
     geom_head:
@@ -35,7 +36,7 @@ train:
   stop_after_iterations: 0
   checkpoint_period: 5000
   checkpoint_max_to_keep: 2
-  output_dir: outputs/geotopo_dino/gcvd_mvp
+  output_dir: outputs/geotopo_dino/gcvd_pixel
   seed: 42
   centering: centering
 
@@ -123,10 +124,9 @@ local_order:
 tgsr:
   enabled: false
 
-# Optional student-only MAE-style decoder; old configs without this section
-# also disable the branch. Reuses the final iBOT mask and teacher input pixels.
+# Student-only MAE-style decoder using final iBOT masks and teacher input pixels.
 pixel_reconstruction:
-  enabled: false
+  enabled: true
   decoder_dim: 256
   decoder_depth: 2
   decoder_num_heads: 8

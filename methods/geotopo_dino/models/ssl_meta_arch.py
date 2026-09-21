@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import math
+
 import torch
 from torch import nn
 
-from dinov2.fsdp import reshard_fsdp_model
+from dinov2.fsdp import get_fsdp_wrapper, reshard_fsdp_model
 from dinov2.train.ssl_meta_arch import SSLMetaArch
 
 try:
@@ -22,6 +24,12 @@ from ..losses.gcvd_loss import (
 )
 from ..masking import BlockMaskPolicy, pack_masks
 from .projection_head import GCVDPrototypeHead, GeometryProjectionHead
+from .pixel_decoder import PixelDecoder
+from ..losses.pixel_reconstruction_loss import (
+    PixelReconstructionLoss,
+    global_reconstruction_mask,
+    pixel_warmup_scale,
+)
 
 
 class GeoTopoSSLMetaArch(SSLMetaArch):
@@ -29,8 +37,7 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
 
     def __init__(self, cfg):
         super().__init__(cfg)
-        # Future local-order predictors live here: they are optimized with the
-        # student but deliberately excluded from teacher EMA updates.
+        # Student-only predictors are optimized/checkpointed but excluded from EMA.
         self.student_aux = nn.ModuleDict()
         self.gcvd_enabled = bool(cfg.gcvd.enabled)
         self.use_standard_local_dino = bool(cfg.gcvd.use_standard_local_dino)
@@ -111,11 +118,62 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
             )
         self.mask_policy = BlockMaskPolicy()
 
+        # Missing settings preserve the original construction and RNG sequence.
+        pixel_cfg = getattr(cfg, "pixel_reconstruction", {})
+        self.pixel_reconstruction_enabled = bool(pixel_cfg.get("enabled", False))
+        self.pixel_reconstruction_signature = {"enabled": False}
+        if self.pixel_reconstruction_enabled:
+            self.pixel_loss_weight = float(pixel_cfg.get("loss_weight", 0.1))
+            self.pixel_warmup_iterations = int(pixel_cfg.get("warmup_iterations", 1000))
+            self.pixel_visualization_period = int(pixel_cfg.get("visualization_period", 0))
+            if not math.isfinite(self.pixel_loss_weight) or self.pixel_loss_weight < 0:
+                raise ValueError("pixel_reconstruction.loss_weight must be finite and non-negative")
+            if self.pixel_visualization_period < 0:
+                raise ValueError("pixel_reconstruction.visualization_period must be non-negative")
+            pixel_warmup_scale(0, self.pixel_warmup_iterations)
+            patch_size = int(cfg.student.patch_size)
+            image_size = int(cfg.crops.global_crops_size)
+            if image_size % patch_size:
+                raise ValueError("pixel reconstruction requires global size divisible by patch size")
+            in_chans = self.student.backbone.patch_embed.proj.in_channels
+            decoder_args = dict(
+                embed_dim=self.embed_dim,
+                grid_size=(image_size // patch_size, image_size // patch_size),
+                patch_size=patch_size,
+                in_chans=in_chans,
+                decoder_dim=int(pixel_cfg.get("decoder_dim", 256)),
+                decoder_depth=int(pixel_cfg.get("decoder_depth", 2)),
+                decoder_num_heads=int(pixel_cfg.get("decoder_num_heads", 8)),
+            )
+            self.student_aux["pixel_decoder"] = PixelDecoder(**decoder_args)
+            self.pixel_loss = PixelReconstructionLoss(
+                patch_size, norm_pix_loss=bool(pixel_cfg.get("norm_pix_loss", False))
+            )
+            self.pixel_reconstruction_signature = {
+                "enabled": True,
+                **decoder_args,
+                "norm_pix_loss": self.pixel_loss.norm_pix_loss,
+            }
+
     def get_params_groups(self):
         groups = super().get_params_groups()
         for module in self.student_aux.values():
             groups += self.get_maybe_fused_params_for_submodel(module)
         return groups
+
+    def prepare_for_distributed_training(self):
+        super().prepare_for_distributed_training()
+        if self.pixel_reconstruction_enabled:
+            precision_cfg = getattr(self.cfg.compute_precision, "student_aux", None)
+            decoder_cfg = (
+                precision_cfg.pixel_decoder if precision_cfg is not None
+                else self.cfg.compute_precision.student.dino_head
+            )
+            # A separate FSDP root synchronizes student-only parameters without
+            # requiring a corresponding teacher module. Includes checkpoint state.
+            self.student_aux["pixel_decoder"] = get_fsdp_wrapper(decoder_cfg)(
+                self.student_aux["pixel_decoder"]
+            )
 
     def _gcvd_scale(self, iteration: int, schedule_max_iterations: int) -> float:
         return compute_gcvd_warmup_scale(
@@ -468,6 +526,30 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 )
             loss_accumulator = loss_accumulator + dense_contribution + region_contribution
 
+        if self.pixel_reconstruction_enabled:
+            reconstruction_mask = global_reconstruction_mask(mask_state.masks, anchor_valid_masks)
+            pixel_prediction = self.student_aux.pixel_decoder(student_global["x_norm_patchtokens"])
+            pixel_raw_loss = self.pixel_loss(pixel_prediction, global_crops, reconstruction_mask)
+            pixel_scale = pixel_warmup_scale(iteration, self.pixel_warmup_iterations)
+            pixel_contribution = self.pixel_loss_weight * pixel_scale * pixel_raw_loss
+            loss_accumulator = loss_accumulator + pixel_contribution
+            loss_dict["pixel_raw_loss"] = pixel_raw_loss.detach()
+            loss_dict["pixel_weighted_loss"] = pixel_contribution.detach()
+            loss_dict["pixel_warmup_scale"] = pixel_raw_loss.new_tensor(pixel_scale)
+            loss_dict["pixel_masked_patch_count"] = reconstruction_mask.sum().float()
+            if self.pixel_visualization_period and (iteration + 1) % self.pixel_visualization_period == 0:
+                import dinov2.distributed as distributed
+                if distributed.is_main_process():
+                    from pathlib import Path
+                    from ..tools.visualize_reconstruction import save_reconstruction_grid
+
+                    save_reconstruction_grid(
+                        global_crops.detach(), pixel_prediction.detach(), reconstruction_mask,
+                        patch_size=patch_size,
+                        output_path=Path(self.cfg.train.output_dir) / "pixel_reconstruction" / f"step_{iteration + 1:07d}.png",
+                        norm_pix_loss=self.pixel_loss.norm_pix_loss,
+                    )
+
         if not torch.isfinite(loss_accumulator.detach()).all():
             raise FloatingPointError("Non-finite optimization loss detected")
         loss_dict["optimization_loss"] = loss_accumulator.detach()
@@ -483,5 +565,7 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 for module in self.student.values():
                     module._streams = streams
                 for module in self.teacher.values():
+                    module._streams = streams
+                for module in self.student_aux.values():
                     module._streams = streams
             self.need_to_synchronize_fsdp_streams = False

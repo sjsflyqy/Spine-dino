@@ -5,6 +5,9 @@
 # Markdown documents are kept locally.
 *.md
 
+# Local documentation and analysis artifacts.
+/docs/
+
 # Generated portable datasets. These contain medical images and are transferred
 # to training machines separately; never commit them to the source repository.
 /SpinePretrain-v1/

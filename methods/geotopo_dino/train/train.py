@@ -13,7 +13,6 @@ from fvcore.common.checkpoint import PeriodicCheckpointer
 import dinov2.distributed as distributed
 from dinov2.data import MaskingGenerator, SamplerType, make_data_loader, make_dataset
 from dinov2.data.spine_webdataset import make_spine_webdataset
-from dinov2.fsdp import FSDPCheckpointer
 from dinov2.logging import MetricLogger
 from dinov2.train.train import (
     apply_optim_scheduler,
@@ -27,6 +26,7 @@ from dinov2.utils.config import setup
 
 from ..data import DataAugmentationGeoTopoDINO, collate_data_and_cast_gcvd
 from ..models.ssl_meta_arch import GeoTopoSSLMetaArch
+from .checkpoint import GeoTopoCheckpointer
 
 
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -45,7 +45,7 @@ def do_train(cfg, model, resume: bool = False):
         last_layer_lr_schedule,
     ) = build_schedulers(cfg)
 
-    checkpointer = FSDPCheckpointer(model, cfg.train.output_dir, optimizer=optimizer, save_to_disk=True)
+    checkpointer = GeoTopoCheckpointer(model, cfg.train.output_dir, optimizer=optimizer, save_to_disk=True)
     start_iter = checkpointer.resume_or_load(cfg.MODEL.WEIGHTS, resume=resume).get("iteration", -1) + 1
     epoch_length = cfg.train.OFFICIAL_EPOCH_LENGTH
     schedule_max_iter = cfg.optim.epochs * epoch_length
@@ -216,7 +216,7 @@ def main(args):
     logger.info("Model:\n%s", model)
     if args.eval_only:
         iteration = (
-            FSDPCheckpointer(model, save_dir=cfg.train.output_dir)
+            GeoTopoCheckpointer(model, save_dir=cfg.train.output_dir)
             .resume_or_load(cfg.MODEL.WEIGHTS, resume=not args.no_resume)
             .get("iteration", -1)
             + 1
