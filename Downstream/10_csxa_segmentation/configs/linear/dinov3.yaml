@@ -1,0 +1,38 @@
+data:
+  data_root: Downstream/data/task10
+model:
+  mode: linear
+  backbone: dinov3
+  weights: weights/base/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth
+  input_size: 896
+  target_size: 256
+auxiliaries:
+  source: spinefm_official
+  reference_split_hashes:
+    train: e8f1a663f013a05aca92e8bd8de2f157bcca3bc73e6e4e10506da532e9427bf0
+    val: fcec3bd702d9a518ce9ee3f66b86effd1849f43a101d5e9bdcd79c7a4d9a78eb
+    test: 959ae14d31cde8a1e2802d7a6502ffa0c44bc441347d60583d767b3957cc3bb2
+  detector: outputs/downstream/task10_csxa/auxiliary/mask_rcnn_csxa.pth
+  classifier: outputs/downstream/task10_csxa/auxiliary/resnet50_2_class_224px_csxa.pth
+  point_predictor: outputs/downstream/task10_csxa/auxiliary/point_predictor.pth
+pipeline:
+  patch_size: 300
+  mask_threshold: 0.9
+  detector_score_threshold: 0.6
+  detector_mask_threshold: 0.9
+  stop_iou: 0.1
+  max_steps_per_direction: 8
+training:
+  seed: 42
+  epochs: 100
+  batch_size: 2
+  workers: 4
+  learning_rate: 0.001
+  adapter_learning_rate: 0.0001
+  weight_decay: 0.0
+  gradient_accumulation_steps: 2
+  max_grad_norm: 1.0
+  patch_repeats: 1
+  validate_every: 5
+  patience: 0
+output_dir: outputs/downstream/task10_csxa/linear/dinov3

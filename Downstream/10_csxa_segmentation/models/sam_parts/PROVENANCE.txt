@@ -1,0 +1,4 @@
+Vendored from reference_code/downstream/SpineFM-master, SAM/Med-SA components.
+Original copyright notices preserved. SpineFM distribution license is included.
+Only package-relative imports changed; architectures and mask-token behavior unchanged.
+No SAM image encoder, external package imports, or automatic downloads are included.

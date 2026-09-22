@@ -1,0 +1,29 @@
+data:
+  data_root: Downstream/data/task10
+seed: 42
+output_dir: outputs/downstream/task10_csxa/auxiliary_local
+detector:
+  model:
+    min_size: 640
+    max_size: 1024
+    initialization: null
+  epochs: 100
+  batch_size: 2
+  workers: 4
+  learning_rate: 0.0001
+  validate_every: 5
+classifier:
+  model:
+    initialization: null
+  epochs: 50
+  batch_size: 16
+  workers: 4
+  learning_rate: 0.0001
+  validate_every: 1
+point_predictor:
+  model: {}
+  epochs: 200
+  batch_size: 64
+  workers: 0
+  learning_rate: 0.001
+  validate_every: 5
