@@ -64,6 +64,8 @@ teacher:
 
 optim:
   epochs: 379
+  total_iterations: 0  # 0 retains epochs * OFFICIAL_EPOCH_LENGTH
+  backbone_lr_mult: 1.0
   weight_decay: 0.04
   weight_decay_end: 0.2
   base_lr: 0.001

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 
 import torch
@@ -23,6 +24,7 @@ from ..losses.gcvd_loss import (
     valid_mean_pool,
 )
 from ..masking import BlockMaskPolicy, pack_masks
+from ..train.schedules import get_schedule_iterations
 from .projection_head import GCVDPrototypeHead, GeometryProjectionHead
 from .pixel_decoder import PixelDecoder
 from ..losses.pixel_reconstruction_loss import (
@@ -31,11 +33,16 @@ from ..losses.pixel_reconstruction_loss import (
     pixel_warmup_scale,
 )
 
+logger = logging.getLogger("dinov2")
+
 
 class GeoTopoSSLMetaArch(SSLMetaArch):
     """MVP: one anchor + one random global, original SSL losses, plus GCVD."""
 
     def __init__(self, cfg):
+        backbone_lr_mult = float(getattr(cfg.optim, "backbone_lr_mult", 1.0))
+        if not math.isfinite(backbone_lr_mult) or backbone_lr_mult <= 0:
+            raise ValueError("optim.backbone_lr_mult must be finite and positive")
         super().__init__(cfg)
         # Student-only predictors are optimized/checkpointed but excluded from EMA.
         self.student_aux = nn.ModuleDict()
@@ -59,9 +66,7 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
             raise ValueError("GCVD loss weights must be non-negative")
         self._gcvd_scale(
             iteration=0,
-            schedule_max_iterations=int(
-                cfg.optim.epochs * cfg.train.OFFICIAL_EPOCH_LENGTH
-            ),
+            schedule_max_iterations=get_schedule_iterations(cfg),
         )
 
         if bool(cfg.local_order.enabled):
@@ -155,6 +160,16 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 "norm_pix_loss": self.pixel_loss.norm_pix_loss,
             }
 
+    def get_maybe_fused_params_for_submodel(self, module):
+        groups = list(super().get_maybe_fused_params_for_submodel(module))
+        # Identity still holds after the module has been wrapped in FSDP.
+        if module is self.student.backbone:
+            multiplier = float(getattr(self.cfg.optim, "backbone_lr_mult", 1.0))
+            for group in groups:
+                group["lr_multiplier"] *= multiplier
+            logger.info("Backbone LR multiplier: %g (in addition to layer/patch decay)", multiplier)
+        return groups
+
     def get_params_groups(self):
         groups = super().get_params_groups()
         for module in self.student_aux.values():
@@ -193,9 +208,7 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
         schedule_max_iterations: int | None = None,
     ):
         if schedule_max_iterations is None:
-            schedule_max_iterations = int(
-                self.cfg.optim.epochs * self.cfg.train.OFFICIAL_EPOCH_LENGTH
-            )
+            schedule_max_iterations = get_schedule_iterations(self.cfg)
         progress = float(iteration) / float(max(schedule_max_iterations - 1, 1))
         n_global_crops = 2
         n_local_crops = self.cfg.crops.local_crops_number

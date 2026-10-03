@@ -17,7 +17,6 @@ from dinov2.logging import MetricLogger
 from dinov2.train.train import (
     apply_optim_scheduler,
     build_optimizer,
-    build_schedulers,
     cleanup_recovery_checkpoints,
     do_test,
     get_args_parser,
@@ -27,6 +26,7 @@ from dinov2.utils.config import setup
 from ..data import DataAugmentationGeoTopoDINO, collate_data_and_cast_gcvd
 from ..models.ssl_meta_arch import GeoTopoSSLMetaArch
 from .checkpoint import GeoTopoCheckpointer
+from .schedules import build_schedulers, get_schedule_iterations
 
 
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -47,10 +47,10 @@ def do_train(cfg, model, resume: bool = False):
 
     checkpointer = GeoTopoCheckpointer(model, cfg.train.output_dir, optimizer=optimizer, save_to_disk=True)
     start_iter = checkpointer.resume_or_load(cfg.MODEL.WEIGHTS, resume=resume).get("iteration", -1) + 1
-    epoch_length = cfg.train.OFFICIAL_EPOCH_LENGTH
-    schedule_max_iter = cfg.optim.epochs * epoch_length
+    schedule_max_iter = get_schedule_iterations(cfg)
     stop_after = int(getattr(cfg.train, "stop_after_iterations", 0))
     max_iter = min(schedule_max_iter, stop_after) if stop_after > 0 else schedule_max_iter
+    logger.info("Scheduler budget=%d steps; training budget=%d steps", schedule_max_iter, max_iter)
     if start_iter >= max_iter:
         logger.info("Target already reached: start_iter=%d max_iter=%d", start_iter, max_iter)
         return {}
