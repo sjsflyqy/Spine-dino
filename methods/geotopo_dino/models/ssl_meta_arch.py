@@ -32,6 +32,7 @@ from ..losses.pixel_reconstruction_loss import (
     global_reconstruction_mask,
     pixel_warmup_scale,
 )
+from ..losses.wavelet_reconstruction_loss import WaveletReconstructionLoss
 
 logger = logging.getLogger("dinov2")
 
@@ -159,6 +160,35 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 **decoder_args,
                 "norm_pix_loss": self.pixel_loss.norm_pix_loss,
             }
+
+        # Optional loss on the SAME prediction/target/mask, with no new weights.
+        wavelet_cfg = getattr(cfg, "wavelet_reconstruction", {})
+        self.wavelet_reconstruction_enabled = bool(wavelet_cfg.get("enabled", False))
+        self.wavelet_reconstruction_signature = {"enabled": False}
+        if self.wavelet_reconstruction_enabled:
+            if not self.pixel_reconstruction_enabled:
+                raise ValueError("wavelet reconstruction requires pixel_reconstruction.enabled=true")
+            if self.pixel_loss.norm_pix_loss:
+                raise ValueError("wavelet reconstruction requires pixel_reconstruction.norm_pix_loss=false")
+            self.wavelet_loss_weight = float(wavelet_cfg.get("loss_weight", 0.1))
+            if not math.isfinite(self.wavelet_loss_weight) or self.wavelet_loss_weight < 0:
+                raise ValueError("wavelet_reconstruction.loss_weight must be finite and non-negative")
+            warmup = wavelet_cfg.get("warmup_iterations", 1000)
+            self.wavelet_warmup_iterations = int(warmup)
+            if self.wavelet_warmup_iterations != warmup or self.wavelet_warmup_iterations < 0:
+                raise ValueError("wavelet_reconstruction.warmup_iterations must be a non-negative integer")
+            self.wavelet_loss = WaveletReconstructionLoss(int(cfg.student.patch_size))
+            self.wavelet_reconstruction_signature = {
+                "enabled": True,
+                "wavelet": "haar",
+                "level": 1,
+                "bands": "details_only_equal_weight",
+                "loss": "l1",
+                "target": "normalized_global_crops",
+                "loss_weight": self.wavelet_loss_weight,
+                "warmup_iterations": self.wavelet_warmup_iterations,
+            }
+            logger.info("Wavelet reconstruction: %s", self.wavelet_reconstruction_signature)
 
     def get_maybe_fused_params_for_submodel(self, module):
         groups = list(super().get_maybe_fused_params_for_submodel(module))
@@ -550,6 +580,14 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
             loss_dict["pixel_weighted_loss"] = pixel_contribution.detach()
             loss_dict["pixel_warmup_scale"] = pixel_raw_loss.new_tensor(pixel_scale)
             loss_dict["pixel_masked_patch_count"] = reconstruction_mask.sum().float()
+            if self.wavelet_reconstruction_enabled:
+                wavelet_raw_loss = self.wavelet_loss(pixel_prediction, global_crops, reconstruction_mask)
+                wavelet_scale = pixel_warmup_scale(iteration, self.wavelet_warmup_iterations)
+                wavelet_contribution = self.wavelet_loss_weight * wavelet_scale * wavelet_raw_loss
+                loss_accumulator = loss_accumulator + wavelet_contribution
+                loss_dict["wavelet_raw_loss"] = wavelet_raw_loss.detach()
+                loss_dict["wavelet_weighted_loss"] = wavelet_contribution.detach()
+                loss_dict["wavelet_warmup_scale"] = wavelet_raw_loss.new_tensor(wavelet_scale)
             if self.pixel_visualization_period and (iteration + 1) % self.pixel_visualization_period == 0:
                 import dinov2.distributed as distributed
                 if distributed.is_main_process():

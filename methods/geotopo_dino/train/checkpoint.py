@@ -1,4 +1,4 @@
-"""Reject accidental decoder architecture changes before restoring any state."""
+"""Reject decoder/objective changes before restoring training state."""
 
 from dinov2.fsdp import FSDPCheckpointer
 
@@ -18,13 +18,30 @@ def validate_pixel_checkpoint(checkpoint, expected):
         )
 
 
+def validate_wavelet_checkpoint(checkpoint, expected):
+    # Legacy F025 checkpoints predate wavelet supervision and remain resumable
+    # with wavelet disabled. A new objective must start a separate experiment.
+    saved = checkpoint.get("wavelet_reconstruction_signature", {"enabled": False})
+    if saved != expected:
+        raise ValueError(
+            "Wavelet reconstruction checkpoint/config mismatch. Resume with the same enabled flag, "
+            "loss_weight, and warmup_iterations. To change the objective, start a new output directory "
+            "with --no-resume and initialize via student.pretrained_weights, not MODEL.WEIGHTS. "
+            f"Saved: {saved}; requested: {expected}"
+        )
+
+
 class GeoTopoCheckpointer(FSDPCheckpointer):
     def save(self, name, **kwargs):
         signature = self.model.pixel_reconstruction_signature
         if signature["enabled"]:
             kwargs["pixel_reconstruction_signature"] = signature
+        wavelet_signature = self.model.wavelet_reconstruction_signature
+        if wavelet_signature["enabled"]:
+            kwargs["wavelet_reconstruction_signature"] = wavelet_signature
         super().save(name, **kwargs)
 
     def _load_model(self, checkpoint):
         validate_pixel_checkpoint(checkpoint, self.model.pixel_reconstruction_signature)
+        validate_wavelet_checkpoint(checkpoint, self.model.wavelet_reconstruction_signature)
         return super()._load_model(checkpoint)
