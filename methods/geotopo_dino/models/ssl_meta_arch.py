@@ -33,6 +33,7 @@ from ..losses.pixel_reconstruction_loss import (
     pixel_warmup_scale,
 )
 from ..losses.wavelet_reconstruction_loss import WaveletReconstructionLoss
+from ..losses.gradient_reconstruction_loss import GradientReconstructionLoss
 
 logger = logging.getLogger("dinov2")
 
@@ -189,6 +190,37 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 "warmup_iterations": self.wavelet_warmup_iterations,
             }
             logger.info("Wavelet reconstruction: %s", self.wavelet_reconstruction_signature)
+
+        gradient_cfg = getattr(cfg, "gradient_reconstruction", {})
+        self.gradient_reconstruction_enabled = bool(gradient_cfg.get("enabled", False))
+        self.gradient_reconstruction_signature = {"enabled": False}
+        if self.gradient_reconstruction_enabled:
+            if not self.pixel_reconstruction_enabled:
+                raise ValueError("gradient reconstruction requires pixel_reconstruction.enabled=true")
+            if self.pixel_loss.norm_pix_loss:
+                raise ValueError("gradient reconstruction requires pixel_reconstruction.norm_pix_loss=false")
+            if self.wavelet_reconstruction_enabled:
+                raise ValueError("F-Grad requires wavelet_reconstruction.enabled=false for an independent control")
+            self.gradient_loss_weight = float(gradient_cfg.get("loss_weight", 0.1))
+            if not math.isfinite(self.gradient_loss_weight) or self.gradient_loss_weight < 0:
+                raise ValueError("gradient_reconstruction.loss_weight must be finite and non-negative")
+            warmup = gradient_cfg.get("warmup_iterations", 1000)
+            self.gradient_warmup_iterations = int(warmup)
+            if self.gradient_warmup_iterations != warmup or self.gradient_warmup_iterations < 0:
+                raise ValueError("gradient_reconstruction.warmup_iterations must be a non-negative integer")
+            self.gradient_loss = GradientReconstructionLoss(int(cfg.student.patch_size))
+            self.gradient_reconstruction_signature = {
+                "enabled": True,
+                "operator": "sobel",
+                "kernel_normalization": 8,
+                "padding": "valid",
+                "directions": "xy_signed_equal_weight",
+                "loss": "l1",
+                "target": "normalized_global_crops",
+                "loss_weight": self.gradient_loss_weight,
+                "warmup_iterations": self.gradient_warmup_iterations,
+            }
+            logger.info("Gradient reconstruction: %s", self.gradient_reconstruction_signature)
 
     def get_maybe_fused_params_for_submodel(self, module):
         groups = list(super().get_maybe_fused_params_for_submodel(module))
@@ -588,6 +620,14 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 loss_dict["wavelet_raw_loss"] = wavelet_raw_loss.detach()
                 loss_dict["wavelet_weighted_loss"] = wavelet_contribution.detach()
                 loss_dict["wavelet_warmup_scale"] = wavelet_raw_loss.new_tensor(wavelet_scale)
+            if self.gradient_reconstruction_enabled:
+                gradient_raw_loss = self.gradient_loss(pixel_prediction, global_crops, reconstruction_mask)
+                gradient_scale = pixel_warmup_scale(iteration, self.gradient_warmup_iterations)
+                gradient_contribution = self.gradient_loss_weight * gradient_scale * gradient_raw_loss
+                loss_accumulator = loss_accumulator + gradient_contribution
+                loss_dict["gradient_raw_loss"] = gradient_raw_loss.detach()
+                loss_dict["gradient_weighted_loss"] = gradient_contribution.detach()
+                loss_dict["gradient_warmup_scale"] = gradient_raw_loss.new_tensor(gradient_scale)
             if self.pixel_visualization_period and (iteration + 1) % self.pixel_visualization_period == 0:
                 import dinov2.distributed as distributed
                 if distributed.is_main_process():

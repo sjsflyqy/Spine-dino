@@ -31,6 +31,18 @@ def validate_wavelet_checkpoint(checkpoint, expected):
         )
 
 
+def validate_gradient_checkpoint(checkpoint, expected):
+    saved = checkpoint.get("gradient_reconstruction_signature", {"enabled": False})
+    if saved != expected:
+        raise ValueError(
+            "Gradient reconstruction checkpoint/config mismatch. Resume with the same enabled flag, "
+            "Sobel settings, loss_weight, and warmup_iterations. To change the objective, start a new "
+            "output directory with --no-resume and initialize via student.pretrained_weights, "
+            "not MODEL.WEIGHTS. "
+            f"Saved: {saved}; requested: {expected}"
+        )
+
+
 class GeoTopoCheckpointer(FSDPCheckpointer):
     def save(self, name, **kwargs):
         signature = self.model.pixel_reconstruction_signature
@@ -39,9 +51,13 @@ class GeoTopoCheckpointer(FSDPCheckpointer):
         wavelet_signature = self.model.wavelet_reconstruction_signature
         if wavelet_signature["enabled"]:
             kwargs["wavelet_reconstruction_signature"] = wavelet_signature
+        gradient_signature = self.model.gradient_reconstruction_signature
+        if gradient_signature["enabled"]:
+            kwargs["gradient_reconstruction_signature"] = gradient_signature
         super().save(name, **kwargs)
 
     def _load_model(self, checkpoint):
         validate_pixel_checkpoint(checkpoint, self.model.pixel_reconstruction_signature)
         validate_wavelet_checkpoint(checkpoint, self.model.wavelet_reconstruction_signature)
+        validate_gradient_checkpoint(checkpoint, self.model.gradient_reconstruction_signature)
         return super()._load_model(checkpoint)
