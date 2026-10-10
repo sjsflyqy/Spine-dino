@@ -23,7 +23,7 @@ from ..losses.gcvd_loss import (
     compute_gcvd_warmup_scale,
     valid_mean_pool,
 )
-from ..masking import BlockMaskPolicy, pack_masks
+from ..masking import build_mask_policy, pack_masks
 from ..train.schedules import get_schedule_iterations
 from .projection_head import GCVDPrototypeHead, GeometryProjectionHead
 from .pixel_decoder import PixelDecoder
@@ -117,13 +117,10 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                     ),
                 )
 
-        anchor_policy = str(cfg.masking.anchor_policy)
-        random_policy = str(cfg.masking.random_global_policy)
-        if anchor_policy != "block" or random_policy != "block":
-            raise NotImplementedError(
-                "The MVP implements block/block masking; topology_mixed is reserved for TGSR"
-            )
-        self.mask_policy = BlockMaskPolicy()
+        self.mask_policy = build_mask_policy(cfg.masking, seed=int(cfg.train.seed))
+        self.masking_signature = self.mask_policy.signature
+        if self.masking_signature["anchor_policy"] != "block":
+            logger.info("Structure mask policy: %s", self.masking_signature)
 
         # Missing settings preserve the original construction and RNG sequence.
         pixel_cfg = getattr(cfg, "pixel_reconstruction", {})
@@ -309,6 +306,7 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 teacher_anchor_tokens=teacher_anchor_patch,
                 anchor_valid_mask=anchor_valid_masks,
                 progress=progress,
+                iteration=iteration,
             )
             mask_state = pack_masks(
                 final_masks,
@@ -640,6 +638,17 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                         output_path=Path(self.cfg.train.output_dir) / "pixel_reconstruction" / f"step_{iteration + 1:07d}.png",
                         norm_pix_loss=self.pixel_loss.norm_pix_loss,
                     )
+
+        for name, value in getattr(self.mask_policy, "last_metrics", {}).items():
+            loss_dict[name] = loss_accumulator.detach().new_tensor(value)
+        if getattr(self.mask_policy, "last_examples", []):
+            import dinov2.distributed as distributed
+            if distributed.is_main_process():
+                from pathlib import Path
+                from ..tools.visualize_structure_mask import save_structure_mask_grid
+                save_structure_mask_grid(global_crops[:batch_size], self.mask_policy.last_examples,
+                    output_path=Path(self.cfg.train.output_dir) / "structure_masks" / f"step_{iteration + 1:07d}.png",
+                    iteration=iteration, probability=self.mask_policy.last_metrics["mask_structure_probability"])
 
         if not torch.isfinite(loss_accumulator.detach()).all():
             raise FloatingPointError("Non-finite optimization loss detected")

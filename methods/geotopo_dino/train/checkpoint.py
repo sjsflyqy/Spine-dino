@@ -3,6 +3,19 @@
 from dinov2.fsdp import FSDPCheckpointer
 
 
+def validate_masking_checkpoint(checkpoint, expected):
+    legacy = {"anchor_policy": "block", "random_global_policy": "block"}
+    saved = checkpoint.get("masking_signature", legacy)
+    if saved != expected:
+        raise ValueError(
+            "Mask policy checkpoint/config mismatch. Resume with the same mask algorithm, seed, "
+            "geometry and curriculum. Start a new output directory with --no-resume and "
+            "student.pretrained_weights for a new mask-policy experiment; do not load the old "
+            "full training state via MODEL.WEIGHTS. "
+            f"Saved: {saved}; requested: {expected}"
+        )
+
+
 def validate_pixel_checkpoint(checkpoint, expected):
     saved = checkpoint.get("pixel_reconstruction_signature")
     if saved is None:
@@ -45,6 +58,8 @@ def validate_gradient_checkpoint(checkpoint, expected):
 
 class GeoTopoCheckpointer(FSDPCheckpointer):
     def save(self, name, **kwargs):
+        if self.model.masking_signature["anchor_policy"] != "block":
+            kwargs["masking_signature"] = self.model.masking_signature
         signature = self.model.pixel_reconstruction_signature
         if signature["enabled"]:
             kwargs["pixel_reconstruction_signature"] = signature
@@ -57,6 +72,7 @@ class GeoTopoCheckpointer(FSDPCheckpointer):
         super().save(name, **kwargs)
 
     def _load_model(self, checkpoint):
+        validate_masking_checkpoint(checkpoint, self.model.masking_signature)
         validate_pixel_checkpoint(checkpoint, self.model.pixel_reconstruction_signature)
         validate_wavelet_checkpoint(checkpoint, self.model.wavelet_reconstruction_signature)
         validate_gradient_checkpoint(checkpoint, self.model.gradient_reconstruction_signature)

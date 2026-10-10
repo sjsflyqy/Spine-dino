@@ -16,7 +16,7 @@ class MaskPolicy(ABC):
         teacher_anchor_tokens: torch.Tensor,
         anchor_valid_mask: torch.Tensor,
         progress: float,
+        iteration: int | None = None,
     ) -> tuple[torch.Tensor, object | None]:
         """Return final global masks and optional topology state."""
         raise NotImplementedError
-
