@@ -31,7 +31,7 @@ class GeometryProjectionHead(nn.Module):
 
 
 class GCVDPrototypeHead(DINOHead):
-    """Independent DINO-style projector/prototype head for dense GCVD."""
+    """DINO-style projector/prototype head for dense or pooled-region GCVD."""
 
     def __init__(
         self,

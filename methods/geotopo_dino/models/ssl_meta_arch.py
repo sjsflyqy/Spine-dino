@@ -77,20 +77,6 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
             raise NotImplementedError("TGSR is reserved but is not part of the GCVD MVP")
 
         if self.gcvd_enabled:
-            student_head = GeometryProjectionHead(
-                self.embed_dim,
-                out_dim=int(cfg.gcvd.projection_dim),
-                hidden_dim=int(cfg.gcvd.projection_hidden_dim),
-            )
-            teacher_head = GeometryProjectionHead(
-                self.embed_dim,
-                out_dim=int(cfg.gcvd.projection_dim),
-                hidden_dim=int(cfg.gcvd.projection_hidden_dim),
-            )
-            self.student["geom_head"] = student_head
-            self.teacher["geom_head"] = teacher_head
-            for parameter in self.teacher.geom_head.parameters():
-                parameter.requires_grad = False
             self.gcvd_loss = GeometryDistillationLoss()
             if self.gcvd_loss_type == "prototype_ce":
                 prototype_head_kwargs = {
@@ -100,12 +86,16 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                     "bottleneck_dim": int(cfg.gcvd.head_bottleneck_dim),
                     "nlayers": int(cfg.gcvd.head_nlayers),
                 }
+                # Reuse the configured geom_head FSDP slot for the independent
+                # region prototype head; dense and region balance separately.
+                self.student["geom_head"] = GCVDPrototypeHead(**prototype_head_kwargs)
+                self.teacher["geom_head"] = GCVDPrototypeHead(**prototype_head_kwargs)
                 self.student["gcvd_proto_head"] = GCVDPrototypeHead(**prototype_head_kwargs)
                 self.teacher["gcvd_proto_head"] = GCVDPrototypeHead(**prototype_head_kwargs)
                 for parameter in self.teacher.gcvd_proto_head.parameters():
                     parameter.requires_grad = False
-                self.gcvd_prototype_loss = GCVDPrototypeLoss(
-                    int(cfg.gcvd.head_n_prototypes),
+                prototype_loss_kwargs = dict(
+                    out_dim=int(cfg.gcvd.head_n_prototypes),
                     teacher_temp=float(cfg.gcvd.teacher_temp),
                     student_temp=float(cfg.gcvd.student_temp),
                     center_momentum=float(cfg.gcvd.center_momentum),
@@ -116,6 +106,18 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                         getattr(cfg.gcvd, "sinkhorn_iterations", 3)
                     ),
                 )
+                self.gcvd_prototype_loss = GCVDPrototypeLoss(**prototype_loss_kwargs)
+                self.gcvd_region_prototype_loss = GCVDPrototypeLoss(**prototype_loss_kwargs)
+            else:
+                geometry_head_kwargs = dict(
+                    in_dim=self.embed_dim,
+                    out_dim=int(cfg.gcvd.projection_dim),
+                    hidden_dim=int(cfg.gcvd.projection_hidden_dim),
+                )
+                self.student["geom_head"] = GeometryProjectionHead(**geometry_head_kwargs)
+                self.teacher["geom_head"] = GeometryProjectionHead(**geometry_head_kwargs)
+            for parameter in self.teacher.geom_head.parameters():
+                parameter.requires_grad = False
 
         self.mask_policy = build_mask_policy(cfg.masking, seed=int(cfg.train.seed))
         self.masking_signature = self.mask_policy.signature
@@ -392,17 +394,28 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                     local_grid_size=(local_height, local_width),
                 )
                 teacher_region = valid_mean_pool(aligned_teacher, correspondence_valid)
-                teacher_region_geometry = self.teacher.geom_head(
-                    teacher_region.to(dtype=teacher_anchor_patch.dtype)
-                )
                 if self.gcvd_loss_type == "cosine":
+                    teacher_region_geometry = self.teacher.geom_head(
+                        teacher_region.to(dtype=teacher_anchor_patch.dtype)
+                    )
                     teacher_patch_geometry = self.teacher.geom_head(
                         aligned_teacher.to(dtype=teacher_anchor_patch.dtype)
                     )
                     teacher_patch_probabilities = None
                     teacher_prototype_diagnostics = None
+                    teacher_region_probabilities = None
+                    teacher_region_diagnostics = None
                 else:
+                    teacher_region_geometry = None
                     teacher_patch_geometry = None
+                    valid_regions = correspondence_valid.any(dim=-1)
+                    teacher_region_logits = self.teacher.geom_head(
+                        teacher_region[valid_regions].to(dtype=teacher_anchor_patch.dtype)
+                    )
+                    (
+                        teacher_region_probabilities,
+                        teacher_region_diagnostics,
+                    ) = self.gcvd_region_prototype_loss.teacher_probabilities(teacher_region_logits)
                     valid_teacher_tokens = aligned_teacher.reshape(-1, feature_dim)[
                         correspondence_valid.reshape(-1)
                     ]
@@ -418,6 +431,8 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 teacher_region_geometry = None
                 teacher_patch_probabilities = None
                 teacher_prototype_diagnostics = None
+                teacher_region_probabilities = None
+                teacher_region_diagnostics = None
                 correspondence_valid = None
 
             return (
@@ -427,6 +442,8 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 teacher_region_geometry,
                 teacher_patch_probabilities,
                 teacher_prototype_diagnostics,
+                teacher_region_probabilities,
+                teacher_region_diagnostics,
                 correspondence_valid,
                 mask_state,
             )
@@ -438,6 +455,8 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
             teacher_region_geometry,
             teacher_patch_probabilities,
             teacher_prototype_diagnostics,
+            teacher_region_probabilities,
+            teacher_region_diagnostics,
             correspondence_valid,
             mask_state,
         ) = get_teacher_targets()
@@ -524,15 +543,15 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
         if self.gcvd_enabled:
             student_local_patch = student_local["x_norm_patchtokens"]
             student_region = valid_mean_pool(student_local_patch.float(), correspondence_valid)
-            student_region_geometry = self.student.geom_head(
-                student_region.to(dtype=student_local_patch.dtype)
-            )
-            region_raw_loss = self.gcvd_loss.region_loss(
-                student_region_geometry,
-                teacher_region_geometry,
-                correspondence_valid,
-            )
             if self.gcvd_loss_type == "cosine":
+                student_region_geometry = self.student.geom_head(
+                    student_region.to(dtype=student_local_patch.dtype)
+                )
+                region_raw_loss = self.gcvd_loss.region_loss(
+                    student_region_geometry,
+                    teacher_region_geometry,
+                    correspondence_valid,
+                )
                 student_patch_geometry = self.student.geom_head(student_local_patch)
                 dense_raw_loss = self.gcvd_loss.dense_loss(
                     student_patch_geometry,
@@ -541,6 +560,14 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 )
                 student_prototype_diagnostics = None
             else:
+                valid_regions = correspondence_valid.any(dim=-1)
+                student_region_logits = self.student.geom_head(
+                    student_region[valid_regions].to(dtype=student_local_patch.dtype)
+                )
+                region_raw_loss, student_region_diagnostics = self.gcvd_region_prototype_loss(
+                    student_region_logits,
+                    teacher_region_probabilities,
+                )
                 valid_student_tokens = student_local_patch.reshape(-1, self.embed_dim)[
                     correspondence_valid.reshape(-1)
                 ]
@@ -571,6 +598,13 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
             loss_dict["gcvd_region_weighted_loss"] = region_contribution.detach()
             loss_dict["gcvd_valid_ratio"] = correspondence_valid.float().mean()
             if self.gcvd_loss_type == "prototype_ce":
+                loss_dict["gcvd_region_raw_kl"] = (
+                    region_raw_loss.detach() - teacher_region_diagnostics["entropy"]
+                )
+                for name, value in teacher_region_diagnostics.items():
+                    loss_dict[f"gcvd_region_teacher_{name}"] = value
+                for name, value in student_region_diagnostics.items():
+                    loss_dict[f"gcvd_region_student_{name}"] = value
                 loss_dict["gcvd_dense_raw_kl"] = (
                     dense_raw_loss.detach()
                     - teacher_prototype_diagnostics["entropy"]

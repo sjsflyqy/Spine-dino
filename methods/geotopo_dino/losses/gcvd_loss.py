@@ -114,7 +114,7 @@ def compute_gcvd_warmup_scale(
 
 
 class GCVDPrototypeLoss(nn.Module):
-    """Balanced teacher-student prototype cross entropy for valid GCVD patches."""
+    """Teacher-student prototype cross entropy for valid GCVD patches or regions."""
 
     def __init__(
         self,
@@ -146,7 +146,7 @@ class GCVDPrototypeLoss(nn.Module):
         self.teacher_centering = str(teacher_centering)
         self.sinkhorn_iterations = int(sinkhorn_iterations)
         # This buffer belongs to the top-level model state, so FSDP checkpoints
-        # restore it together with both GCVD heads and the optimizer state.
+        # restore it together with the GCVD heads and the optimizer state.
         self.register_buffer("center", torch.zeros(1, self.out_dim))
 
     @staticmethod
@@ -208,7 +208,7 @@ class GCVDPrototypeLoss(nn.Module):
         teacher_logits: torch.Tensor,
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         if teacher_logits.ndim != 2 or teacher_logits.shape[-1] != self.out_dim:
-            raise ValueError("teacher GCVD logits must have shape [valid_patches, prototypes]")
+            raise ValueError("teacher GCVD logits must have shape [valid_tokens, prototypes]")
         logits = teacher_logits.float()
         if self.teacher_centering == "centering":
             probabilities = F.softmax((logits - self.center) / self.teacher_temp, dim=-1)
@@ -288,7 +288,7 @@ class GCVDPrototypeLoss(nn.Module):
         if student_logits.shape != teacher_probabilities.shape:
             raise ValueError("student logits and teacher probabilities must have identical shapes")
         if student_logits.ndim != 2 or student_logits.shape[-1] != self.out_dim:
-            raise ValueError("student GCVD logits must have shape [valid_patches, prototypes]")
+            raise ValueError("student GCVD logits must have shape [valid_tokens, prototypes]")
         if student_logits.shape[0] == 0:
             zero = student_logits.sum() * 0.0
             # Keep the usage all-reduce collective aligned across ranks even if

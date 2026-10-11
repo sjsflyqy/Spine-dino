@@ -85,7 +85,7 @@ gcvd.use_standard_local_dino=false
 source geometry is already collated for the former, while the teacher-first
 mask-policy hook is the integration point for future topology masking.
 
-## GCVD warmup and dense-loss switches
+## GCVD warmup and loss switches
 
 The canonical warmup values are `no_warmup`, `fraction`, and `fixed_iter`.
 Warmup always uses the restored global optimizer iteration; it is not reset by
@@ -102,8 +102,14 @@ gcvd.warmup_type=fraction gcvd.warmup_fraction=0.05
 gcvd.warmup_type=fixed_iter gcvd.warmup_iterations=1000
 ```
 
-Dense GCVD supports the original normalized-feature cosine loss and an
-independent centered prototype head. Region GCVD remains cosine in both cases.
+`gcvd.loss_type` selects the loss for both dense and region GCVD. `cosine`
+uses the original normalized-feature cosine distances. `prototype_ce` uses
+independent dense and region prototype heads with the same prototype count,
+temperatures, teacher centering mode, and Sinkhorn iteration count. Region
+features are mean-pooled over valid aligned patches before projection; crops
+with no valid correspondence are excluded. Dense and region teacher assignments
+are balanced separately, and centering mode keeps a separate center per branch.
+The region head uses the existing `geom_head` precision/FSDP configuration.
 
 ```bash
 gcvd.loss_type=cosine
@@ -113,7 +119,7 @@ gcvd.loss_type=prototype_ce \
   gcvd.teacher_temp=0.04 \
   gcvd.student_temp=0.1
 
-# Change only the GCVD prototype teacher to globally balanced assignments.
+# Use globally balanced assignments for both GCVD prototype teachers.
 # train.centering remains unchanged for the standard DINO/iBOT objectives.
 gcvd.loss_type=prototype_ce \
   gcvd.teacher_centering=sinkhorn_knopp \
@@ -131,11 +137,15 @@ optimization loss:
   probability, hard active-prototype ratios, marginal entropy, and soft
   effective-prototype ratios; `gcvd_dense_raw_kl` subtracts teacher entropy
   from the dense cross-entropy for a comparable student-teacher mismatch;
+- region prototype diagnostics use `gcvd_region_teacher_*` and
+  `gcvd_region_student_*`; `gcvd_region_raw_kl` subtracts region teacher entropy;
 - `optimization_loss` and `total_loss` are the actual scalar sent to backward.
 
 The former ambiguous `gcvd_dense_loss` and `gcvd_region_loss` keys are no
-longer emitted. Prototype experiments must use a new output directory rather
-than resume a cosine checkpoint.
+longer emitted. Prototype experiments must use a new output directory with
+`--no-resume` rather than resume a cosine checkpoint or an older prototype
+checkpoint whose region head used cosine. The region head architecture has
+changed; initialize the backbone using `student.pretrained_weights` as usual.
 
 ## Optional pixel reconstruction using the iBOT mask
 
