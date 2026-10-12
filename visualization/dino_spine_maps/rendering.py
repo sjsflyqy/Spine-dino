@@ -170,6 +170,8 @@ def save_raw_maps(
     payload: dict[str, np.ndarray] = {
         "valid_patch_mask": prepared.valid_patch_mask.astype(np.bool_, copy=False)
     }
+    if result.query_patch is not None:
+        payload["query_patch_rc"] = np.asarray(result.query_patch, dtype=np.int64)
     for layer in result.layers:
         prefix = f"layer_{layer.layer:02d}"
         payload[f"{prefix}_attention_heads"] = layer.attention_heads
@@ -177,6 +179,8 @@ def save_raw_maps(
         payload[f"{prefix}_attention_max"] = layer.attention_max
         payload[f"{prefix}_attention_patch_mass"] = layer.attention_patch_mass
         payload[f"{prefix}_cosine"] = layer.cosine
+        if layer.patch_cosine is not None:
+            payload[f"{prefix}_patch_cosine"] = layer.patch_cosine
     np.savez_compressed(output_dir / "raw_maps.npz", **payload)
 
 

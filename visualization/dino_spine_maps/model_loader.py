@@ -59,13 +59,15 @@ def _strip_uniform_prefix(state: Mapping[str, torch.Tensor], prefix: str) -> dic
 
 
 def _extract_state_dict(checkpoint: Any, path: Path) -> dict[str, torch.Tensor]:
-    """Accept bare backbones and common wrappers, rejecting ambiguous full SSL states."""
+    """Accept bare backbones and tensor wrappers, preferring explicit teachers."""
 
     if _is_tensor_mapping(checkpoint):
         state = dict(checkpoint)
     elif isinstance(checkpoint, Mapping):
         state = None
-        for key in ("model", "state_dict", "backbone"):
+        # Training initialization/evaluation exports often store the raw
+        # backbone under `teacher`, alongside non-tensor metadata.
+        for key in ("teacher", "model", "state_dict", "backbone"):
             candidate = checkpoint.get(key)
             if _is_tensor_mapping(candidate):
                 state = dict(candidate)

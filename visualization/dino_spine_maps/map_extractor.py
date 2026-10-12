@@ -1,4 +1,4 @@
-"""Extract layer-wise CLS attention and CLS-to-patch cosine maps."""
+"""Extract layer-wise CLS attention and CLS/patch-to-patch cosine maps."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ class LayerMaps:
     attention_max: np.ndarray  # [grid_h, grid_w]
     attention_patch_mass: np.ndarray  # [heads]
     cosine: np.ndarray  # [grid_h, grid_w]
+    patch_cosine: np.ndarray | None = None  # Query patch vs all patches.
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,7 @@ class ExtractionResult:
     grid_size: tuple[int, int]
     final_cls_token: torch.Tensor
     final_patch_tokens: torch.Tensor
+    query_patch: tuple[int, int] | None = None  # Zero-based (row, column).
 
 
 def _normalize_requested_layers(layers: Iterable[int] | None, depth: int) -> set[int]:
@@ -121,11 +123,14 @@ def extract_layer_maps(
     image: torch.Tensor,
     *,
     layers: Iterable[int] | None = None,
+    query_patch: tuple[int, int] | None = None,
 ) -> ExtractionResult:
     """Run one image through every block and retain maps for selected layers.
 
     ``layers`` uses zero-based indices internally; the CLI accepts one-based
     layer numbers and converts them before calling this function.
+    ``query_patch`` is a zero-based (row, column) in the model patch grid.
+    When provided, each selected layer also retains query-to-patch cosine.
     """
 
     model = loaded.model
@@ -136,6 +141,10 @@ def extract_layer_maps(
         raise ValueError(f"Expected image shape [3,H,W] or [1,3,H,W], got {tuple(image.shape)}")
     grid_height = image.shape[-2] // loaded.patch_size
     grid_width = image.shape[-1] // loaded.patch_size
+    if query_patch is not None:
+        row, column = query_patch
+        if not (0 <= row < grid_height and 0 <= column < grid_width):
+            raise ValueError(f"Query patch {query_patch} outside grid {(grid_height, grid_width)}")
     patch_start = 1 + loaded.num_extra_tokens
 
     if loaded.generation == 2:
@@ -182,6 +191,16 @@ def extract_layer_maps(
                     cosine=_cosine_grid(
                         cls_token, patch_tokens, grid_height, grid_width
                     ),
+                    patch_cosine=(
+                        _cosine_grid(
+                            patch_tokens[:, query_patch[0] * grid_width + query_patch[1]],
+                            patch_tokens,
+                            grid_height,
+                            grid_width,
+                        )
+                        if query_patch is not None
+                        else None
+                    ),
                 )
             )
 
@@ -191,5 +210,5 @@ def extract_layer_maps(
         grid_size=(grid_height, grid_width),
         final_cls_token=final_cls.detach().cpu(),
         final_patch_tokens=final_patches.detach().cpu(),
+        query_patch=query_patch,
     )
-
