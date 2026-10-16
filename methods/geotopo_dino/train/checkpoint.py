@@ -57,7 +57,14 @@ def validate_gradient_checkpoint(checkpoint, expected):
 
 
 class GeoTopoCheckpointer(FSDPCheckpointer):
+    def __init__(self, *args, gradient_accumulation_steps=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # None allows evaluation-only loading independently of training batch size.
+        self.gradient_accumulation_steps = gradient_accumulation_steps
+
     def save(self, name, **kwargs):
+        if self.gradient_accumulation_steps is not None:
+            kwargs["gradient_accumulation_steps"] = self.gradient_accumulation_steps
         if self.model.masking_signature["anchor_policy"] != "block":
             kwargs["masking_signature"] = self.model.masking_signature
         signature = self.model.pixel_reconstruction_signature
@@ -72,6 +79,15 @@ class GeoTopoCheckpointer(FSDPCheckpointer):
         super().save(name, **kwargs)
 
     def _load_model(self, checkpoint):
+        if self.gradient_accumulation_steps is not None:
+            saved_steps = checkpoint.get("gradient_accumulation_steps", 1)
+            if saved_steps != self.gradient_accumulation_steps:
+                raise ValueError(
+                    "Gradient accumulation checkpoint/config mismatch. Resume with the same "
+                    "train.gradient_accumulation_steps, or start a new experiment with --no-resume "
+                    "and student.pretrained_weights. "
+                    f"Saved: {saved_steps}; requested: {self.gradient_accumulation_steps}"
+                )
         validate_masking_checkpoint(checkpoint, self.model.masking_signature)
         validate_pixel_checkpoint(checkpoint, self.model.pixel_reconstruction_signature)
         validate_wavelet_checkpoint(checkpoint, self.model.wavelet_reconstruction_signature)

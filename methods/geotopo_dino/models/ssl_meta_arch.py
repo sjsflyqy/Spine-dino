@@ -267,6 +267,7 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
         *,
         iteration: int = 0,
         schedule_max_iterations: int | None = None,
+        loss_scale: float = 1.0,
     ):
         if schedule_max_iterations is None:
             schedule_max_iterations = get_schedule_iterations(self.cfg)
@@ -687,7 +688,8 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
         if not torch.isfinite(loss_accumulator.detach()).all():
             raise FloatingPointError("Non-finite optimization loss detected")
         loss_dict["optimization_loss"] = loss_accumulator.detach()
-        self.backprop_loss(loss_accumulator)
+        # Keep logged losses unscaled so they remain comparable across batch sizes.
+        self.backprop_loss(loss_accumulator * loss_scale if loss_scale != 1.0 else loss_accumulator)
         self.fsdp_synchronize_streams()
         return loss_dict
 

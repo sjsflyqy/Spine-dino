@@ -12,6 +12,8 @@ from typing import Any, Literal
 import torch
 from torch import nn
 
+from backbone.checkpoints import extract_state_dict as _extract_state_dict
+
 
 Generation = Literal[2, 3]
 
@@ -43,55 +45,6 @@ def _torch_load(path: Path) -> Any:
             return torch.load(path, weights_only=True, **kwargs)
         except TypeError:
             return torch.load(path, **kwargs)
-
-
-def _is_tensor_mapping(value: Any) -> bool:
-    return isinstance(value, Mapping) and bool(value) and all(
-        isinstance(key, str) and isinstance(tensor, torch.Tensor)
-        for key, tensor in value.items()
-    )
-
-
-def _strip_uniform_prefix(state: Mapping[str, torch.Tensor], prefix: str) -> dict[str, torch.Tensor]:
-    if state and all(key.startswith(prefix) for key in state):
-        return {key[len(prefix) :]: value for key, value in state.items()}
-    return dict(state)
-
-
-def _extract_state_dict(checkpoint: Any, path: Path) -> dict[str, torch.Tensor]:
-    """Accept bare backbones and tensor wrappers, preferring explicit teachers."""
-
-    if _is_tensor_mapping(checkpoint):
-        state = dict(checkpoint)
-    elif isinstance(checkpoint, Mapping):
-        state = None
-        # Training initialization/evaluation exports often store the raw
-        # backbone under `teacher`, alongside non-tensor metadata.
-        for key in ("teacher", "model", "state_dict", "backbone"):
-            candidate = checkpoint.get(key)
-            if _is_tensor_mapping(candidate):
-                state = dict(candidate)
-                break
-        if state is None:
-            available = ", ".join(map(str, list(checkpoint)[:12]))
-            raise ValueError(
-                f"{path} is not an extracted backbone checkpoint (top-level keys: {available}). "
-                "Use tools/extract_teacher_backbone.py on a full SSL checkpoint first."
-            )
-    else:
-        raise TypeError(f"Unsupported checkpoint object in {path}: {type(checkpoint).__name__}")
-
-    # DataParallel and some exported wrappers add a uniform prefix.
-    for prefix in ("module.", "model."):
-        state = _strip_uniform_prefix(state, prefix)
-
-    # A state dict may contain a complete teacher module. Keep only its backbone.
-    for prefix in ("teacher.backbone.", "backbone."):
-        matching = {key[len(prefix) :]: value for key, value in state.items() if key.startswith(prefix)}
-        if matching:
-            state = matching
-            break
-    return state
 
 
 def _detect_generation(state: Mapping[str, torch.Tensor], requested: str) -> Generation:

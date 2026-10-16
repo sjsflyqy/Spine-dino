@@ -65,6 +65,60 @@ CUDA_VISIBLE_DEVICES=0 torchrun --standalone --nnodes=1 --nproc-per-node=1 --mod
 
 Always compare the main experiment with an equal-budget baseline.
 
+## Gradient accumulation
+
+Pretraining accepts `train.gradient_accumulation_steps` (a positive integer,
+default `1`). For example, append this to the existing two-GPU command:
+
+```bash
+train.batch_size_per_gpu=8 \
+train.gradient_accumulation_steps=4
+```
+
+The global microbatch remains `2 * 8 = 16` images; a complete optimizer update
+averages four microbatches, giving an effective batch of `64`. Gradients are
+cleared before each group, and clipping, AMP unscaling/scaler updates and the
+optimizer step occur once at its end. Teacher parameter EMA runs once per
+successful optimizer step, and is skipped on AMP overflow. A shortened final
+group is averaged over its actual number of microbatches.
+
+All existing iteration counts **remain microbatch counts**: `optim.total_iterations`,
+`train.stop_after_iterations`, LR/teacher-temperature/weight-decay/momentum
+schedules, last-layer freezing, mask curricula and reconstruction warmups.
+Thus `29420` iterations at the same physical batch still process the same number
+of images (the same passes). With accumulation `4`, they make `7355` optimizer
+update attempts. Each update uses the LR, weight decay and EMA momentum at the
+last microbatch of its group. `optim.base_lr` still uses the existing physical
+global-batch scaling rule; accumulation does **not** automatically raise the LR.
+
+Evaluation/checkpoint periods also count microbatches, but a period reached
+inside a group is deferred to the end of that group. Checkpoints contain the
+microbatch iteration, successful `optimizer_updates`, accumulation factor,
+optimizer state and AMP scaler state. Resume requires the same accumulation
+factor; legacy checkpoints use `1`. Evaluation-only loading is independent of
+this factor. Resume preserves the original sampler behavior; it does not promise
+an identical augmentation/data sequence to an uninterrupted run. Splitting a run
+at a partial group also creates an extra optimizer update compared with keeping
+that group intact, so choose stage boundaries divisible by the accumulation factor.
+
+Logs retain the original, unscaled losses and add `gradient_accumulation_steps`,
+`effective_batch_size` (smaller for a partial final group), and `optimizer_updates`.
+FSDP gradients continue to synchronize on every microbatch; `no_sync()` is not
+used, avoiding its extra full-gradient memory cost. Accumulation does not combine
+teacher logits/features across microbatches: GCVD Sinkhorn, DINO/iBOT centering
+and KoLeo still operate on each forward's inputs. It therefore does not reproduce
+every effect of a physically larger batch.
+
+An optional integration check uses synthetic 28x28 images and a small ViT with
+GCVD and pixel reconstruction. It exercises the actual trainer, AMP, two-rank
+FSDP, a shortened final group and exact parameter/scaler restoration on resume:
+
+```bash
+torchrun --standalone --nproc-per-node=2 --module \
+  methods.geotopo_dino.tests.smoke_accumulation_fsdp \
+  --output-dir /tmp/accumulation-fsdp
+```
+
 Useful ablations can be set from the command line:
 
 ```bash
@@ -88,7 +142,7 @@ mask-policy hook is the integration point for future topology masking.
 ## GCVD warmup and loss switches
 
 The canonical warmup values are `no_warmup`, `fraction`, and `fixed_iter`.
-Warmup always uses the restored global optimizer iteration; it is not reset by
+Warmup always uses the restored global microbatch iteration; it is not reset by
 `stop_after_iterations` or by staged 10-pass launches.
 
 ```bash
@@ -98,7 +152,7 @@ gcvd.warmup_type=no_warmup
 # Fraction of the complete optim.epochs * OFFICIAL_EPOCH_LENGTH schedule
 gcvd.warmup_type=fraction gcvd.warmup_fraction=0.05
 
-# Fixed global optimizer iterations, independent of schedule length
+# Fixed global microbatch iterations, independent of schedule length
 gcvd.warmup_type=fixed_iter gcvd.warmup_iterations=1000
 ```
 
@@ -139,7 +193,8 @@ optimization loss:
   from the dense cross-entropy for a comparable student-teacher mismatch;
 - region prototype diagnostics use `gcvd_region_teacher_*` and
   `gcvd_region_student_*`; `gcvd_region_raw_kl` subtracts region teacher entropy;
-- `optimization_loss` and `total_loss` are the actual scalar sent to backward.
+- `optimization_loss` and `total_loss` are the optimization objective before
+  gradient-accumulation normalization.
 
 The former ambiguous `gcvd_dense_loss` and `gcvd_region_loss` keys are no
 longer emitted. Prototype experiments must use a new output directory with

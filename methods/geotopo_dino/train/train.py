@@ -6,6 +6,7 @@ import logging
 import math
 import os
 from functools import partial
+from numbers import Integral
 
 import torch
 from fvcore.common.checkpoint import PeriodicCheckpointer
@@ -33,7 +34,15 @@ torch.backends.cuda.matmul.allow_tf32 = True
 logger = logging.getLogger("dinov2")
 
 
+def get_accumulation_steps(cfg):
+    steps = cfg.train.get("gradient_accumulation_steps", 1)
+    if isinstance(steps, bool) or not isinstance(steps, Integral) or steps < 1:
+        raise ValueError("train.gradient_accumulation_steps must be a positive integer")
+    return int(steps)
+
+
 def do_train(cfg, model, resume: bool = False):
+    accumulation_steps = get_accumulation_steps(cfg)
     model.train()
     inputs_dtype = torch.half
     optimizer = build_optimizer(cfg, model.get_params_groups())
@@ -45,19 +54,37 @@ def do_train(cfg, model, resume: bool = False):
         last_layer_lr_schedule,
     ) = build_schedulers(cfg)
 
-    checkpointer = GeoTopoCheckpointer(model, cfg.train.output_dir, optimizer=optimizer, save_to_disk=True)
-    start_iter = checkpointer.resume_or_load(cfg.MODEL.WEIGHTS, resume=resume).get("iteration", -1) + 1
+    checkpointables = {"optimizer": optimizer}
+    if model.fp16_scaler is not None:
+        checkpointables["fp16_scaler"] = model.fp16_scaler
+    checkpointer = GeoTopoCheckpointer(
+        model, cfg.train.output_dir, save_to_disk=True,
+        gradient_accumulation_steps=accumulation_steps, **checkpointables,
+    )
+    checkpoint_state = checkpointer.resume_or_load(cfg.MODEL.WEIGHTS, resume=resume)
+    start_iter = checkpoint_state.get("iteration", -1) + 1
+    optimizer_updates = checkpoint_state.get("optimizer_updates", start_iter)
     schedule_max_iter = get_schedule_iterations(cfg)
     stop_after = int(getattr(cfg.train, "stop_after_iterations", 0))
     max_iter = min(schedule_max_iter, stop_after) if stop_after > 0 else schedule_max_iter
     logger.info("Scheduler budget=%d steps; training budget=%d steps", schedule_max_iter, max_iter)
+    global_batch_size = cfg.train.batch_size_per_gpu * distributed.get_global_size()
+    logger.info(
+        "Gradient accumulation=%d; global microbatch=%d; effective batch=%d. "
+        "Iteration budgets and schedules count microbatches; LR scaling is unchanged.",
+        accumulation_steps, global_batch_size, global_batch_size * accumulation_steps,
+    )
     if start_iter >= max_iter:
         logger.info("Target already reached: start_iter=%d max_iter=%d", start_iter, max_iter)
         return {}
 
+    checkpoint_period = int(cfg.train.checkpoint_period)
+    if checkpoint_period < 1:
+        raise ValueError("train.checkpoint_period must be positive")
+    eval_period = int(cfg.evaluation.eval_period_iterations)
     periodic_checkpointer = PeriodicCheckpointer(
         checkpointer,
-        period=int(cfg.train.checkpoint_period),
+        period=checkpoint_period,
         max_iter=max_iter,
         max_to_keep=None,
     )
@@ -130,6 +157,7 @@ def do_train(cfg, model, resume: bool = False):
     metric_logger = MetricLogger(delimiter="  ", output_file=metrics_file)
     logger.info("Starting GeoTopo-DINO training from iteration %d", start_iter)
     iteration = start_iter
+    microbatches_in_update = 0
     for data in metric_logger.log_every(
         data_loader,
         10,
@@ -139,6 +167,11 @@ def do_train(cfg, model, resume: bool = False):
     ):
         if iteration >= max_iter:
             break
+        if microbatches_in_update == 0:
+            update_start_iter = iteration
+            # Normalize a shortened final group by its actual size.
+            update_size = min(accumulation_steps, max_iter - iteration)
+            optimizer.zero_grad(set_to_none=True)
         lr = lr_schedule[iteration]
         wd = wd_schedule[iteration]
         momentum = momentum_schedule[iteration]
@@ -146,30 +179,40 @@ def do_train(cfg, model, resume: bool = False):
         last_layer_lr = last_layer_lr_schedule[iteration]
         apply_optim_scheduler(optimizer, lr, wd, last_layer_lr)
 
-        optimizer.zero_grad(set_to_none=True)
         loss_dict = model.forward_backward(
             data,
             teacher_temp=teacher_temp,
             iteration=iteration,
             schedule_max_iterations=schedule_max_iter,
+            loss_scale=1.0 / update_size,
         )
-        if model.fp16_scaler is not None:
-            if cfg.optim.clip_grad:
-                model.fp16_scaler.unscale_(optimizer)
-                for module in model.student.values():
-                    module.clip_grad_norm_(cfg.optim.clip_grad)
-                for module in model.student_aux.values():
-                    module.clip_grad_norm_(cfg.optim.clip_grad)
-            model.fp16_scaler.step(optimizer)
-            model.fp16_scaler.update()
-        else:
-            if cfg.optim.clip_grad:
-                for module in model.student.values():
-                    module.clip_grad_norm_(cfg.optim.clip_grad)
-                for module in model.student_aux.values():
-                    module.clip_grad_norm_(cfg.optim.clip_grad)
-            optimizer.step()
-        model.update_teacher(momentum)
+        microbatches_in_update += 1
+        is_update_boundary = microbatches_in_update == update_size
+        if is_update_boundary:
+            did_step = True
+            if model.fp16_scaler is not None:
+                if cfg.optim.clip_grad:
+                    model.fp16_scaler.unscale_(optimizer)
+                    for module in model.student.values():
+                        module.clip_grad_norm_(cfg.optim.clip_grad)
+                    for module in model.student_aux.values():
+                        module.clip_grad_norm_(cfg.optim.clip_grad)
+                previous_scale = model.fp16_scaler.get_scale()
+                model.fp16_scaler.step(optimizer)
+                model.fp16_scaler.update()
+                # GradScaler lowers its scale when an overflow skips the step.
+                did_step = model.fp16_scaler.get_scale() >= previous_scale
+            else:
+                if cfg.optim.clip_grad:
+                    for module in model.student.values():
+                        module.clip_grad_norm_(cfg.optim.clip_grad)
+                    for module in model.student_aux.values():
+                        module.clip_grad_norm_(cfg.optim.clip_grad)
+                optimizer.step()
+            if did_step:
+                model.update_teacher(momentum)
+                optimizer_updates += 1
+            microbatches_in_update = 0
 
         if distributed.get_global_size() > 1:
             for value in loss_dict.values():
@@ -184,31 +227,49 @@ def do_train(cfg, model, resume: bool = False):
         metric_logger.update(lr=lr, wd=wd, mom=momentum, last_layer_lr=last_layer_lr)
         metric_logger.update(
             current_batch_size=data["collated_global_crops"].shape[0] / 2,
+            gradient_accumulation_steps=accumulation_steps,
+            effective_batch_size=global_batch_size * update_size,
+            optimizer_updates=optimizer_updates,
             total_loss=reduced["optimization_loss"],
             **reduced,
         )
 
         is_final = iteration + 1 == max_iter
-        if is_final or (
-            cfg.evaluation.eval_period_iterations > 0
-            and (iteration + 1) % int(cfg.evaluation.eval_period_iterations) == 0
-        ):
+        eval_due = eval_period > 0 and (
+            (iteration + 1) // eval_period > update_start_iter // eval_period
+        )
+        if is_update_boundary and (is_final or eval_due):
             do_test(cfg, model, f"training_{iteration}")
             torch.cuda.synchronize()
-        periodic_checkpointer.step(iteration)
-        if is_final or (iteration + 1) % int(cfg.train.checkpoint_period) == 0:
+        checkpoint_due = (
+            (iteration + 1) // checkpoint_period > update_start_iter // checkpoint_period
+        )
+        if is_update_boundary and (is_final or checkpoint_due):
+            if checkpoint_due and (iteration + 1) % checkpoint_period and not is_final:
+                # A period crossed inside a group is saved at the group's end.
+                periodic_checkpointer.save(
+                    f"model_{iteration:07d}", iteration=iteration, optimizer_updates=optimizer_updates,
+                )
+            else:
+                periodic_checkpointer.step(iteration, optimizer_updates=optimizer_updates)
             cleanup_recovery_checkpoints(
                 cfg.train.output_dir,
                 int(cfg.train.checkpoint_max_to_keep),
             )
         iteration += 1
 
+    if microbatches_in_update:
+        raise RuntimeError(
+            "Data loader exhausted before a gradient accumulation group completed. "
+            "Check the data loader and train.stop_after_iterations; partial gradients were not checkpointed."
+        )
     metric_logger.synchronize_between_processes()
     return {key: meter.global_avg for key, meter in metric_logger.meters.items()}
 
 
 def main(args):
     cfg = setup(args)
+    get_accumulation_steps(cfg)
     if int(cfg.crops.global_crops_size) != int(cfg.gcvd.anchor_size):
         raise ValueError("gcvd.anchor_size must equal crops.global_crops_size in the MVP")
     model = GeoTopoSSLMetaArch(cfg).to(torch.device("cuda"))

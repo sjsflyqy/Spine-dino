@@ -188,6 +188,27 @@ python Downstream/07_ningbo_whole_spine_keypoint/train_probe.py \
   --output-dir outputs/downstream/task07_keypoint_probe/cnn_probe/my_teacher
 ```
 
+### 原生权重格式与架构匹配
+
+`--weights` 只覆盖权重路径，不会修改配置中的 `model.backbone`。
+DINOv2/本项目转换后的 RAD-DINO ViT-B/14 权重应使用 `dinov2` 配置；
+DINOv3 ViT-B/16 权重应使用 `dinov3` 配置。配置文件名可不同，但骨干架构必须匹配。
+
+共享原生加载器支持裸 `state_dict`、`model`、`teacher`（可同时包含 `meta`）、
+`state_dict`、`backbone` 封装，并对提取的权重进行严格加载。
+可视化与下游入口使用同一份封装解析逻辑。遇到架构不匹配时，会直接提示
+应使用的 `model.backbone`，不会自动切换配置所指定的模型。
+
+例如，DINOv3 的训练初始化权重可以直接用于 CNN 探测头，无需另行导出：
+
+```bash
+CUDA_VISIBLE_DEVICES=7 python Downstream/07_ningbo_whole_spine_keypoint/train_probe.py \
+  --config Downstream/07_ningbo_whole_spine_keypoint/configs/spine_dinov3_teacher_20k.yaml \
+  --weights weights/initialization/dinov3_vitb16_lvd1689m_training_init.pth \
+  --output-dir outputs/downstream/task07_keypoint_probe/cnn_probe/dinov3 \
+  --probe-type cnn_probe
+```
+
 ### 输出、兼容性与验证
 
 新预设的默认输出目录为
