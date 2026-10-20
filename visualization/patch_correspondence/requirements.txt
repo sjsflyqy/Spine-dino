@@ -1,0 +1,4 @@
+# Use the existing spine_dino_pretrain environment for torch / torchvision.
+numpy
+Pillow
+matplotlib>=3.6
