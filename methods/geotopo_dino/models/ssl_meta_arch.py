@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+from numbers import Integral
 
 import torch
 from torch import nn
@@ -127,8 +128,23 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
         # Missing settings preserve the original construction and RNG sequence.
         pixel_cfg = getattr(cfg, "pixel_reconstruction", {})
         self.pixel_reconstruction_enabled = bool(pixel_cfg.get("enabled", False))
+        self.pixel_use_intermediate = False
         self.pixel_reconstruction_signature = {"enabled": False}
         if self.pixel_reconstruction_enabled:
+            feature_layer = pixel_cfg.get("feature_layer", -1)
+            depth = getattr(self.student.backbone, "n_blocks", None)
+            if (
+                isinstance(feature_layer, bool)
+                or not isinstance(feature_layer, Integral)
+                or (feature_layer != -1 and (depth is None or not 1 <= feature_layer <= depth))
+            ):
+                raise ValueError(
+                    "pixel_reconstruction.feature_layer must be -1 (last block) "
+                    f"or a 1-based block number in [1, {depth}]"
+                )
+            self.pixel_feature_layer = depth if feature_layer == -1 and depth is not None else feature_layer
+            self.pixel_use_intermediate = feature_layer != -1 and feature_layer != depth
+            logger.info("Pixel reconstruction feature layer: %s (1-based; -1 means last)", self.pixel_feature_layer)
             self.pixel_loss_weight = float(pixel_cfg.get("loss_weight", 0.1))
             self.pixel_warmup_iterations = int(pixel_cfg.get("warmup_iterations", 1000))
             self.pixel_visualization_period = int(pixel_cfg.get("visualization_period", 0))
@@ -160,6 +176,10 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
                 **decoder_args,
                 "norm_pix_loss": self.pixel_loss.norm_pix_loss,
             }
+            # Keep the exact legacy signature for final-layer runs, including
+            # explicit selection of the final block, so old runs remain resumable.
+            if self.pixel_use_intermediate:
+                self.pixel_reconstruction_signature["feature_layer"] = self.pixel_feature_layer
 
         # Optional loss on the SAME prediction/target/mask, with no new weights.
         wavelet_cfg = getattr(cfg, "wavelet_reconstruction", {})
@@ -463,10 +483,14 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
         ) = get_teacher_targets()
         reshard_fsdp_model(self.teacher)
 
+        backbone_kwargs = {}
+        if self.pixel_reconstruction_enabled and self.pixel_use_intermediate:
+            backbone_kwargs["return_patch_layer"] = self.pixel_feature_layer
         student_global, student_local = self.student.backbone(
             [global_crops, local_crops],
             masks=[mask_state.masks, None],
             is_training=True,
+            **backbone_kwargs,
         )
         inputs_for_head = []
         if self.use_standard_local_dino:
@@ -636,7 +660,8 @@ class GeoTopoSSLMetaArch(SSLMetaArch):
 
         if self.pixel_reconstruction_enabled:
             reconstruction_mask = global_reconstruction_mask(mask_state.masks, anchor_valid_masks)
-            pixel_prediction = self.student_aux.pixel_decoder(student_global["x_norm_patchtokens"])
+            feature_key = "x_norm_patchtokens_intermediate" if self.pixel_use_intermediate else "x_norm_patchtokens"
+            pixel_prediction = self.student_aux.pixel_decoder(student_global[feature_key])
             pixel_raw_loss = self.pixel_loss(pixel_prediction, global_crops, reconstruction_mask)
             pixel_scale = pixel_warmup_scale(iteration, self.pixel_warmup_iterations)
             pixel_contribution = self.pixel_loss_weight * pixel_scale * pixel_raw_loss

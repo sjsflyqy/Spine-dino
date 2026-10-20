@@ -8,6 +8,7 @@
 #   https://github.com/rwightman/pytorch-image-models/tree/master/timm/models/vision_transformer.py
 
 from functools import partial
+from numbers import Integral
 import math
 import logging
 from typing import Sequence, Tuple, Union, Callable
@@ -36,10 +37,14 @@ def named_apply(fn: Callable, module: nn.Module, name="", depth_first=True, incl
 
 
 class BlockChunk(nn.ModuleList):
-    def forward(self, x):
-        for b in self:
+    def forward(self, x, return_patch_layer=None):
+        intermediate = None
+        for i, b in enumerate(self):
             x = b(x)
-        return x
+            # Chunk prefixes are identities used to preserve global block indices.
+            if return_patch_layer == i + 1 and not isinstance(b, nn.Identity):
+                intermediate = x
+        return x if return_patch_layer is None else (x, intermediate)
 
 
 class DinoVisionTransformer(nn.Module):
@@ -232,10 +237,33 @@ class DinoVisionTransformer(nn.Module):
 
         return x
 
-    def forward_features_list(self, x_list, masks_list):
+    def _forward_blocks_with_patch_layer(self, x, layer):
+        """Keep a 1-based block output inside the normal (possibly FSDP) forward."""
+        if isinstance(layer, bool) or not isinstance(layer, Integral) or not 1 <= layer <= self.n_blocks:
+            raise ValueError(f"return_patch_layer must be an integer in [1, {self.n_blocks}]")
+        intermediate = None
+        for i, blk in enumerate(self.blocks):
+            if self.chunked_blocks:
+                # Call each wrapped chunk through forward, never bypass FSDP.
+                x, candidate = blk(x, return_patch_layer=layer)
+                if candidate is not None:
+                    intermediate = candidate
+            else:
+                x = blk(x)
+                if i + 1 == layer:
+                    intermediate = x
+        if intermediate is None:
+            raise RuntimeError(f"Block output for layer {layer} was not returned")
+        return x, intermediate
+
+    def forward_features_list(self, x_list, masks_list, return_patch_layer=None):
         x = [self.prepare_tokens_with_masks(x, masks) for x, masks in zip(x_list, masks_list)]
-        for blk in self.blocks:
-            x = blk(x)
+        if return_patch_layer is None:
+            for blk in self.blocks:
+                x = blk(x)
+            intermediate = None
+        else:
+            x, intermediate = self._forward_blocks_with_patch_layer(x, return_patch_layer)
 
         all_x = x
         output = []
@@ -250,25 +278,35 @@ class DinoVisionTransformer(nn.Module):
                     "masks": masks,
                 }
             )
+        if intermediate is not None:
+            for result, tokens in zip(output, intermediate):
+                result["x_norm_patchtokens_intermediate"] = self.norm(tokens)[:, self.num_register_tokens + 1 :]
         return output
 
-    def forward_features(self, x, masks=None):
+    def forward_features(self, x, masks=None, return_patch_layer=None):
         if isinstance(x, list):
-            return self.forward_features_list(x, masks)
+            return self.forward_features_list(x, masks, return_patch_layer=return_patch_layer)
 
         x = self.prepare_tokens_with_masks(x, masks)
 
-        for blk in self.blocks:
-            x = blk(x)
+        if return_patch_layer is None:
+            for blk in self.blocks:
+                x = blk(x)
+            intermediate = None
+        else:
+            x, intermediate = self._forward_blocks_with_patch_layer(x, return_patch_layer)
 
         x_norm = self.norm(x)
-        return {
+        output = {
             "x_norm_clstoken": x_norm[:, 0],
             "x_norm_regtokens": x_norm[:, 1 : self.num_register_tokens + 1],
             "x_norm_patchtokens": x_norm[:, self.num_register_tokens + 1 :],
             "x_prenorm": x,
             "masks": masks,
         }
+        if intermediate is not None:
+            output["x_norm_patchtokens_intermediate"] = self.norm(intermediate)[:, self.num_register_tokens + 1 :]
+        return output
 
     def _get_intermediate_layers_not_chunked(self, x, n=1):
         x = self.prepare_tokens_with_masks(x)

@@ -24,7 +24,7 @@ def validate_pixel_checkpoint(checkpoint, expected):
     if saved != expected:
         raise ValueError(
             "Pixel reconstruction checkpoint/config mismatch. Resume with the same enabled flag, "
-            "decoder architecture, and norm_pix_loss. To change these, start a new output directory "
+            "decoder architecture, feature_layer, and norm_pix_loss. To change these, start a new output directory "
             "with --no-resume and initialize the backbone via student.pretrained_weights; "
             "do not use MODEL.WEIGHTS for a decoder-incompatible training checkpoint. "
             f"Saved: {saved}; requested: {expected}"

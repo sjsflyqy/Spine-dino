@@ -216,6 +216,25 @@ default, and a linear pixel predictor. It does not delete/reorder tokens or add
 new mask tokens. Both global views are reconstructed in their original order;
 local crops have no reconstruction branch. There is no second backbone forward.
 
+Select the reconstruction source with `pixel_reconstruction.feature_layer=8`
+for the **8th Transformer block** (1-based, not Python index 8). For ViT-B,
+valid choices are 1 through 12. The default `-1` selects the final block and
+preserves the original path; explicitly selecting 12 is equivalent. This option
+is ignored while pixel reconstruction is disabled. It can be appended to any
+existing training command without editing its YAML configuration.
+
+Intermediate patch tokens come from the same masked global forward and are
+normalized using the backbone's existing final LayerNorm, as in its intermediate
+feature extraction API. DINO, iBOT and GCVD still use final-layer features.
+For layer 8, reconstruction gradients reach blocks 1--8 and the shared LayerNorm,
+but not blocks 9--12. Wavelet/gradient reconstruction, when enabled, also use the
+selected layer because they supervise the same decoder prediction.
+
+For a layer ablation, keep the other overrides fixed, append
+`pixel_reconstruction.feature_layer=8`, and choose a new output directory with
+`--no-resume`. Use 4, 6, 8 or 12 to compare depths. Existing running Python
+training processes retain their loaded code; this option applies on a new launch.
+
 The target is `collated_global_crops`, exactly the **augmented, normalized input
 received by the teacher**. This includes existing blur/intensity augmentations;
 it is not the original pre-augmentation radiograph. MSE is computed in FP32 only
@@ -256,7 +275,7 @@ two-random-global augmentation policy.
 Resume a pixel run using the same configuration/output directory and omit
 `--no-resume`. Full training checkpoints include decoder and optimizer state;
 the teacher export used downstream remains decoder-free. A checkpoint signature
-rejects changed decoder settings, enabled flags or `norm_pix_loss` before state
+rejects changed decoder settings, enabled flags, reconstruction layers or `norm_pix_loss` before state
 is loaded. Old decoder-free checkpoints remain compatible with the disabled
 branch. To switch configurations, start a new output directory with `--no-resume`
 and use a backbone-only initialization file in the existing
