@@ -33,6 +33,7 @@
 *.zip
 *.7z
 *.rar
+*.bin
 
 # Downloaded, converted, and trained model weights.
 /weights/
@@ -155,3 +156,4 @@ Desktop.ini
 *.bak
 *.orig
 *.rej
+/reference_code/baseline/BiomedCLIP/open_clip_pytorch_model.bin

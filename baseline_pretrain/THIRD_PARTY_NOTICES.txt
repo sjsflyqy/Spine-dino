@@ -1,0 +1,38 @@
+Independent PyTorch ports of the following Apache License 2.0 implementations:
+
+Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved.
+
+1. Meta Platforms, Inc. and affiliates: DINO, DINOv2 and MAE.
+   https://github.com/facebookresearch/dino
+   https://github.com/facebookresearch/dinov2
+   https://github.com/facebookresearch/mae
+   Transformer blocks, positional interpolation, weight-normalized DINO heads,
+   self-distillation, Sinkhorn normalization, block masks, KoLeo and MAE masking
+   and reconstruction equations are adapted from these projects and the local
+   references below. Original Meta copyright notices are retained here.
+
+2. Joshua Scheuplein et al., DINO Adapted to X-Ray (DAX).
+   https://github.com/JoshuaScheuplein/DAX
+   Local source: reference_code/baseline/DAX/DAX-main/
+   ViT-S architecture, antialiased positional interpolation and multi-crop
+   augmentation settings. The raw 16-bit TIFF preprocessing is deliberately
+   not applied to the repository's already rendered spine PNG/JPEG images.
+
+3. CheXFound contributors, CheXFound.
+   Local source: reference_code/baseline/CheXFound/CheXFound-main/
+   ViT-L/16 with registers, SwiGLU, LayerScale, high-drop-rate subset stochastic
+   depth, DINO/iBOT/KoLeo objectives and public checkpoint layouts.
+
+4. Junfei Xiao, Yutong Bai, Alan Yuille, Zongwei Zhou, Medical MAE.
+   https://github.com/lambert-x/medical_mae
+   Local source: reference_code/baseline/medical_MAE/medical_mae-main/
+   ViT-B MAE architecture, decoder, random masking and masked pixel loss.
+
+Changes in this package: explicit namespaced modules; PyTorch SDPA instead of
+timm/xFormers imports; read-only spine index; strict public initialization;
+optimizer-update budgets; resumable deterministic sample streams; mixed
+precision, DDP/FSDP and activation checkpointing; independent artifacts and
+safe tensor-checkpoint loading. See README.md for scientific protocol changes.
+
+Apache License 2.0 text: LICENSE-APACHE-2.0.txt.
+Upstream license and weight-use terms remain applicable to their artifacts.

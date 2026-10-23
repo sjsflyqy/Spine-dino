@@ -1,0 +1,148 @@
+{
+  "date": "2026-10-22",
+  "cpu_tests": {
+    "passed": 8,
+    "suite": "baseline_pretrain.tests.test_pretrain"
+  },
+  "distributed_cuda_tests": [
+    {
+      "method": "dax",
+      "parallel": "ddp",
+      "device": "cuda",
+      "resume_max_difference": 1.8189894035458565e-12,
+      "updates": 4
+    },
+    {
+      "method": "medical_mae",
+      "parallel": "ddp",
+      "device": "cuda",
+      "resume_max_difference": 0.0,
+      "updates": 4
+    },
+    {
+      "method": "chexfound",
+      "parallel": "fsdp",
+      "device": "cuda",
+      "resume_max_difference": 0.0,
+      "updates": 4
+    }
+  ],
+  "frozen_head_fsdp_resume": [
+    {
+      "method": "chexfound",
+      "parallel": "fsdp",
+      "device": "cuda",
+      "resume_max_difference": 0.0,
+      "updates": 4
+    }
+  ],
+  "public_initialization": {
+    "dax": {
+      "loaded_tensors": 158,
+      "loaded_elements": 44017792,
+      "all_parameters_loaded": true
+    },
+    "medical_mae": {
+      "loaded_tensors": 254,
+      "loaded_elements": 111907840,
+      "all_parameters_loaded": true
+    },
+    "chexfound": {
+      "path": "/home/think/mnt/zpj2025/spine-dino/reference_code/baseline/CheXFound/teacher_checkpoint.pth",
+      "sha256": "839de84b9971d7ad77cda2d032801503d71aca5ac30cbb08126e76b8e3660909",
+      "loaded_tensors": 360,
+      "loaded_elements": 402680704,
+      "public_epoch": null,
+      "all_parameters_loaded": true
+    }
+  },
+  "chexfound_public_512_short_run": {
+    "hardware": "2 x NVIDIA GeForce RTX 4090 24GB",
+    "gpu_indices": [
+      0,
+      1
+    ],
+    "microbatch_per_gpu": 1,
+    "accumulation_steps": 8,
+    "precision": "bf16",
+    "parallel": "FULL_SHARD",
+    "global_size": 512,
+    "local_size": 144,
+    "local_count": 8,
+    "optimizer_updates": 2,
+    "images_seen": 32,
+    "freeze_last_layer_updates": 1000,
+    "head_adam_steps_at_checkpoint": {
+      "dino_head.last_layer.weight_g": 0.0,
+      "dino_head.last_layer.weight_v": 0.0,
+      "ibot_head.last_layer.weight_g": 0.0,
+      "ibot_head.last_layer.weight_v": 0.0
+    },
+    "summary": {
+      "optimizer_updates": 2,
+      "schedule_complete": false,
+      "checkpoint": "checkpoint_u00000002.pt",
+      "backbone": "backbone_u00000002.pth",
+      "max_rank_memory_including_checkpoint": {
+        "peak_allocated_gib": 5.431835174560547,
+        "peak_reserved_gib": 12.029296875
+      }
+    },
+    "metrics": [
+      {
+        "optimizer_updates": 1,
+        "microbatches": 8,
+        "images_seen": 16,
+        "lr": 8.333333333333334e-09,
+        "weight_decay": 0.04000000000000001,
+        "loss": 30.289286255836487,
+        "dino_loss": 13.386640787124634,
+        "ibot_loss": 5.648502737283707,
+        "koleo_loss": -0.42862886376678944,
+        "peak_allocated_gib": 5.431835174560547,
+        "peak_reserved_gib": 11.560546875,
+        "elapsed_seconds": 7.368532471824437
+      },
+      {
+        "optimizer_updates": 2,
+        "microbatches": 16,
+        "images_seen": 32,
+        "lr": 1.6666666666666667e-08,
+        "weight_decay": 0.04000000045614607,
+        "loss": 30.13978934288025,
+        "dino_loss": 13.193570375442505,
+        "ibot_loss": 5.6638223528862,
+        "koleo_loss": -0.4524820148944855,
+        "peak_allocated_gib": 5.431835174560547,
+        "peak_reserved_gib": 12.029296875,
+        "elapsed_seconds": 13.364944148808718
+      }
+    ],
+    "checkpoint_bytes": 6444556167,
+    "matrix_weight_decay_and_lr_groups_verified": true,
+    "large_validation_weights_removed": true
+  },
+  "isolation": {
+    "existing_source_config_files_checked": 573,
+    "changed": [],
+    "existing_environments_modified": false
+  },
+  "limits": [
+    "No full-length pretraining performed",
+    "DAX/MAE public weights strictly loaded; distributed correctness used tiny synthetic checkpoints",
+    "Downstream adapters are not included in this pretraining-only stage"
+  ],
+  "source_sha256": {
+    "baseline_pretrain/__init__.py": "f12357bf89a7113a01e10746e99e65b2d6e98f85233d7f085910914b503f148c",
+    "baseline_pretrain/checkpointing.py": "55f57ed8ecaee5f50939b6693919f5ac845ca3171e7045438e85efc2c9f71a2b",
+    "baseline_pretrain/config.py": "818312534f974008db263e05c93fa5ec6ce227bd957448a3ee53e2035ec8face",
+    "baseline_pretrain/data.py": "88e59b02ec679b0a180080ec91a367799e61e0edf850438db76debf322d2d677",
+    "baseline_pretrain/export_backbone.py": "42e35ab972960b211b68501113bf33ccf44870dc41d08843c6b79675d3615758",
+    "baseline_pretrain/models.py": "7ad8a195aeed33489fad95622ef91260ca98f9be3a4edf5e3b171b1e63213f2d",
+    "baseline_pretrain/objectives.py": "2fb605bf202494c90d6af67e1fa1b38b8c2c5ac648ea46792b2f01a18042c03c",
+    "baseline_pretrain/tests/__init__.py": "f78d50f209e66b5ee3205047756adbac902434f2e0ce6dab1cf9271f3e1a538e",
+    "baseline_pretrain/tests/distributed_smoke.py": "c5ec60c8f0d9c5333c75f4a64c23068febad2d9e6782d1ec2c1fe024c77d602e",
+    "baseline_pretrain/tests/test_pretrain.py": "76340c68f6f5832038be3ada35ceb0d58a120fac6a40660c81f9cec858bbb2c5",
+    "baseline_pretrain/train.py": "0bf7738fbbb5c9f100de7cac28eae0561840fe0a855461683dc0e9b7a0c4eb84"
+  }
+}

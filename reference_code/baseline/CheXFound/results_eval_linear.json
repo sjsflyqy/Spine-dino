@@ -1,0 +1,30 @@
+ITER: 1885 val
+{"best_classifier": {"name": "linear:blocks=4:avgpool=False:lr=0_0005000000", "results": {"auroc": 0.8041340708732605}}}
+
+ITER: 3771 val
+{"best_classifier": {"name": "linear:blocks=4:avgpool=False:lr=0_0005000000", "results": {"auroc": 0.8210588693618774}}}
+
+ITER: 5657 val
+{"best_classifier": {"name": "linear:blocks=4:avgpool=False:lr=0_0005000000", "results": {"auroc": 0.8304201364517212}}}
+
+ITER: 7543 val
+{"best_classifier": {"name": "linear:blocks=4:avgpool=False:lr=0_0002000000", "results": {"auroc": 0.8310586810112}}}
+
+ITER: 9430 val
+{"best_classifier": {"name": "linear:blocks=4:avgpool=False:lr=0_0005000000", "results": {"auroc": 0.8311399817466736}}}
+
+ITER: 2063 val
+{"best_classifier": {"name": "linear:blocks=4:avgpool=False:lr=0_0005000000", "results": {"auroc": 0.8499941229820251}}}
+
+ITER: 4127 val
+{"best_classifier": {"name": "linear:blocks=4:avgpool=False:lr=0_0005000000", "results": {"auroc": 0.8637586832046509}}}
+
+ITER: 6191 val
+{"best_classifier": {"name": "linear:blocks=4:avgpool=False:lr=0_0005000000", "results": {"auroc": 0.8815361857414246}}}
+
+ITER: 8255 val
+{"best_classifier": {"name": "linear:blocks=4:avgpool=False:lr=0_0005000000", "results": {"auroc": 0.8944568634033203}}}
+
+ITER: 10320 val
+{"best_classifier": {"name": "linear:blocks=4:avgpool=False:lr=0_0005000000", "results": {"auroc": 0.8975158929824829}}}
+
