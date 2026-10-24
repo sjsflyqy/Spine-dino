@@ -13,7 +13,7 @@ from backbone.preprocessing import build_transform
 class VertebraCocoDataset(Dataset):
     """COCO images with GT regions and T1--S1 classification labels."""
 
-    def __init__(self, annotation: str | Path, image_size: int = 518, train=False):
+    def __init__(self, annotation: str | Path, image_size: int = 518, train=False, normalization=None):
         self.annotation = Path(annotation)
         self.root = self.annotation.parent.parent
         payload = json.loads(self.annotation.read_text(encoding="utf-8"))
@@ -29,7 +29,7 @@ class VertebraCocoDataset(Dataset):
         self.category_to_label = {
             category_id: label for label, category_id in enumerate(self.category_ids)
         }
-        self.transform = build_transform(image_size=image_size, train=train)
+        self.transform = build_transform(image_size=image_size, train=train, normalization=normalization)
 
     def __len__(self):
         return len(self.images)

@@ -113,10 +113,11 @@ def main(config: dict | None = None):
         raise ValueError("Task 07 requires nonempty train, validation and test paired splits")
     height = int(model_config.get("image_height", 896))
     width = int(model_config.get("image_width", 448))
+    normalization = model_config.get("normalization")
     datasets = {
         split: PairedWholeSpineDataset(
             REPO_ROOT / "Downstream/data/task07", identifiers, clean,
-            height, width, split == "train",
+            height, width, split == "train", normalization,
         )
         for split, identifiers in splits.items()
     }

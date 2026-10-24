@@ -12,6 +12,7 @@ class SpineFMPipeline:
     def __init__(self, segmenter, auxiliaries, device, config=None):
         self.segmenter, self.aux, self.device = segmenter, auxiliaries, device
         self.config = config or {}
+        self.normalization = segmenter.config.get("normalization")
         self.mask_threshold = float(self.config.get("mask_threshold", 0.9))
         self.patch_size = int(self.config.get("patch_size", 300))
         required_threshold = getattr(self.aux.get("detector"), "csxa_mask_threshold", None)
@@ -21,7 +22,8 @@ class SpineFMPipeline:
 
     @torch.no_grad()
     def segment(self, image, point):
-        x, prompt, _, box = make_crop(image, point, self.patch_size, self.segmenter.input_size)
+        x, prompt, _, box = make_crop(image, point, self.patch_size, self.segmenter.input_size,
+                                      normalization=self.normalization)
         amp = self.device.type == "cuda" and self.config.get("mixed_precision", True)
         dtype = torch.bfloat16 if amp and torch.cuda.is_bf16_supported() else torch.float16
         with torch.autocast(device_type=self.device.type, dtype=dtype, enabled=amp):

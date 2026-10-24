@@ -118,9 +118,10 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     data_root = REPO_ROOT / "Downstream/data/task09/annotations"
     image_size = config["model"].get("image_size", 518)
-    train_set = VertebraCocoDataset(data_root / "train.json", image_size, train=True)
-    val_set = VertebraCocoDataset(data_root / "val.json", image_size, train=False)
-    test_set = VertebraCocoDataset(data_root / "test.json", image_size, train=False)
+    normalization = config["model"].get("normalization")
+    train_set = VertebraCocoDataset(data_root / "train.json", image_size, train=True, normalization=normalization)
+    val_set = VertebraCocoDataset(data_root / "val.json", image_size, train=False, normalization=normalization)
+    test_set = VertebraCocoDataset(data_root / "test.json", image_size, train=False, normalization=normalization)
     train_loader = make_loader(train_set, config, True)
     val_loader = make_loader(val_set, config, False)
     test_loader = make_loader(test_set, config, False)
@@ -134,7 +135,7 @@ def main():
     ).to(device)
     report = trainable_parameter_report(model)
     adapter_enabled = is_adapter_finetune(model)
-    expected_head = 768 * 18 + 18
+    expected_head = model.backbone.embedding_dim * 18 + 18
     if report["head_trainable"] != expected_head or (
         adapter_enabled and report["backbone_trainable"] <= 0
     ) or (not adapter_enabled and report["backbone_trainable"] != 0):

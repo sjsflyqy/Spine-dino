@@ -112,9 +112,10 @@ def main():
 
     height = int(config["model"].get("image_height", 896))
     width = int(config["model"].get("image_width", 448))
+    normalization = config["model"].get("normalization")
     datasets = {
         split: PairedWholeSpineDataset(
-            data_root, identifiers, clean, height, width, split == "train"
+            data_root, identifiers, clean, height, width, split == "train", normalization
         )
         for split, identifiers in splits.items()
     }

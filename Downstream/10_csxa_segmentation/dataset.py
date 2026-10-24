@@ -51,12 +51,19 @@ def crop_box(center, patch_size):
     return int(left), int(top), int(left + patch_size), int(top + patch_size)
 
 
-def image_tensor(image, input_size, augment=False):
+def image_tensor(image, input_size, augment=False, normalization=None):
     image = image.resize((input_size, input_size), Image.Resampling.BICUBIC)
     if augment:
         image = TF.adjust_brightness(image, float(np.random.uniform(0.9, 1.1)))
         image = TF.adjust_contrast(image, float(np.random.uniform(0.9, 1.1)))
-    return TF.normalize(TF.to_tensor(image), MEAN, STD)
+    tensor = TF.to_tensor(image)
+    if normalization is None:
+        mean, std = MEAN, STD
+    else:
+        mean, std = normalization
+    if mean is not None:
+        tensor = TF.normalize(tensor, mean, std)
+    return tensor
 
 
 def classifier_input(image, center, profile="local"):
@@ -74,10 +81,10 @@ def classifier_input(image, center, profile="local"):
     return image_tensor(image.crop(crop_box(center, 256)), 224)
 
 
-def make_crop(image, center, patch_size, input_size, mask=None, target_size=256, augment=False):
+def make_crop(image, center, patch_size, input_size, mask=None, target_size=256, augment=False, normalization=None):
     box = crop_box(center, patch_size)
     cropped = image.crop(box)  # PIL zero-pads out-of-image pixels.
-    x = image_tensor(cropped, input_size, augment)
+    x = image_tensor(cropped, input_size, augment, normalization)
     # Pixel-center convention: same crop origin and pixel-center resize as masks.
     prompt = ((np.asarray(center) - np.asarray(box[:2]) + 0.5) * input_size / patch_size - 0.5)
     y = None
@@ -101,9 +108,10 @@ def restore_probability(probability, box, size):
 
 
 class SegmentationDataset(Dataset):
-    def __init__(self, store, split, input_size=896, patch_size=300, target_size=256, repeats=1):
+    def __init__(self, store, split, input_size=896, patch_size=300, target_size=256, repeats=1, normalization=None):
         self.store, self.split = store, split
         self.input_size, self.patch_size, self.target_size = input_size, patch_size, target_size
+        self.normalization = normalization
         self.samples = [(i, j) for i in store.splits[split] for j in range(5)] * repeats
 
     def __len__(self):
@@ -118,7 +126,8 @@ class SegmentationDataset(Dataset):
             k = np.random.randint(len(x))
             center = (x[k], y[k])
         x, point, target, _ = make_crop(image, center, self.patch_size, self.input_size,
-                                       gt["masks"][j], self.target_size, self.split == "train")
+                                       gt["masks"][j], self.target_size, self.split == "train",
+                                       self.normalization)
         return dict(image=x, point=point, mask=target, id=identifier, level=j)
 
 

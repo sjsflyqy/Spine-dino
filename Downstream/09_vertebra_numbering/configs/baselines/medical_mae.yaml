@@ -1,0 +1,15 @@
+model:
+  backbone: medical_mae
+  weights: reference_code/baseline/medical_MAE/vit-b_CXR_0.5M_mae.pth
+  image_size: 512
+  normalization: {mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225]}
+  freeze_backbone: true
+training:
+  batch_size: 4
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0
+  workers: 4
+  seed: 42
+  early_stopping: {enabled: true, patience: 20, min_delta: 0.0}
+output_dir: outputs/downstream/task09_linear/medical_mae_public

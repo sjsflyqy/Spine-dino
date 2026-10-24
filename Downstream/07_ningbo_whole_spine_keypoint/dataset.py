@@ -87,12 +87,12 @@ def audit_pairs(root: str | Path):
 class PairedWholeSpineDataset(Dataset):
     def __init__(
         self, root: str | Path, identifiers: list[str], point_cache,
-        image_height: int, image_width: int, train: bool,
+        image_height: int, image_width: int, train: bool, normalization=None,
     ) -> None:
         self.root = Path(root)
         self.identifiers = identifiers
         self.point_cache = point_cache
-        self.transform = build_keypoint_transform(image_height, image_width, train)
+        self.transform = build_keypoint_transform(image_height, image_width, train, normalization)
 
     def __len__(self):
         return len(self.identifiers)

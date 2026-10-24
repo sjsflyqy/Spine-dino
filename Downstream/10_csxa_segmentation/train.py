@@ -81,7 +81,8 @@ def main():
         raise RuntimeError("No trainable LoRA modules found")
     dataset = SegmentationDataset(store, "train", model.input_size,
                                    config.get("pipeline", {}).get("patch_size", 300), model.target_size,
-                                   repeats=int(training.get("patch_repeats", 1)))
+                                   repeats=int(training.get("patch_repeats", 1)),
+                                   normalization=config["model"].get("normalization"))
     workers = int(training.get("workers", 4))
     loader = DataLoader(dataset, batch_size=int(training["batch_size"]), shuffle=True,
                         num_workers=workers, persistent_workers=workers > 0,

@@ -212,6 +212,14 @@ def build_backbone(
         "dinov2_base": "facebook/dinov2-base",
     }
     key = name.lower().replace("-", "_")
+    if key in {"dax", "medical_mae", "medicalmae", "chexfound", "chex_found"}:
+        from .baseline_vit import BaselineViTBackbone
+
+        baseline_key = "medical_mae" if key == "medicalmae" else key.replace("chex_found", "chexfound")
+        if not weights:
+            raise ValueError(f"{baseline_key} requires a local public or trained checkpoint path")
+        backbone = BaselineViTBackbone(baseline_key, weights, freeze=freeze)
+        return _configure_adapter(backbone, adapter)
     if key in {"dinov2", "dinov2_base"} and weights and Path(weights).suffix == ".pth":
         backbone = NativeDinoBackbone(2, weights, freeze=freeze)
         return _configure_adapter(backbone, adapter)

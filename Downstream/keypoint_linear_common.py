@@ -15,7 +15,7 @@ from torch import nn
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 
-from backbone.preprocessing import IMAGENET_MEAN, IMAGENET_STD
+from backbone.preprocessing import IMAGENET_MEAN, IMAGENET_STD, resolve_normalization
 
 
 Image.MAX_IMAGE_PIXELS = None
@@ -28,7 +28,7 @@ def seed_everything(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
 
 
-def build_keypoint_transform(height: int, width: int, train: bool = False):
+def build_keypoint_transform(height: int, width: int, train: bool = False, normalization=None):
     operations = [
         transforms.Resize(
             (height, width),
@@ -40,13 +40,10 @@ def build_keypoint_transform(height: int, width: int, train: bool = False):
         # Photometric augmentation preserves landmark coordinates. Geometry
         # augmentation is deliberately excluded from the benchmark protocol.
         operations.append(transforms.ColorJitter(brightness=0.1, contrast=0.1))
-    operations.extend(
-        [
-            transforms.Lambda(lambda image: image.convert("RGB")),
-            transforms.ToTensor(),
-            transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
-        ]
-    )
+    operations.extend([transforms.Lambda(lambda image: image.convert("RGB")), transforms.ToTensor()])
+    mean, std = resolve_normalization(normalization)
+    if mean is not None:
+        operations.append(transforms.Normalize(mean, std))
     return transforms.Compose(operations)
 
 

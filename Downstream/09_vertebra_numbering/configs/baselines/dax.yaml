@@ -1,0 +1,15 @@
+model:
+  backbone: dax
+  weights: reference_code/baseline/DAX/dax-checkpoint-vit-s-16-version-a.pth
+  image_size: 512
+  normalization: {mean: null, std: null}
+  freeze_backbone: true
+training:
+  batch_size: 4
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0
+  workers: 4
+  seed: 42
+  early_stopping: {enabled: true, patience: 20, min_delta: 0.0}
+output_dir: outputs/downstream/task09_linear/dax_public
