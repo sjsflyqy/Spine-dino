@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+import re
 from typing import Any
 
 import torch
@@ -80,6 +81,18 @@ def _normalize_keys(state: Mapping[str, Tensor]) -> dict[str, Tensor]:
                     changed = True
             updated[new_key] = value
         state = updated
+    # CheXFound's official teacher was saved with four BlockChunk containers.
+    # The second numeric component is the original global block index, so
+    # blocks.2.12.attn.qkv becomes blocks.12.attn.qkv.
+    chunked = {}
+    for key, value in state.items():
+        match = re.match(r"^blocks\.\d+\.(\d+)\.(.+)$", key)
+        normalized_key = (
+            "blocks." + match.group(1) + "." + match.group(2)
+            if match else key
+        )
+        chunked[normalized_key] = value
+    state = chunked
     return state
 
 
@@ -135,7 +148,9 @@ class BaselineViTBackbone(nn.Module):
             self.freeze()
 
     def _load(self, path: Path) -> None:
-        payload = load_checkpoint(path)
+        # DAX's published file contains legacy NumPy metadata; this fallback
+        # is restricted to the explicitly selected local baseline checkpoint.
+        payload = load_checkpoint(path, allow_legacy_pickle=True)
         state = _find_state(payload)
         if state is None:
             raise ValueError(f"{path} does not contain a tensor state dictionary")

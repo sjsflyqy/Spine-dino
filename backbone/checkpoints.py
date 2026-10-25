@@ -5,15 +5,24 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+import pickle
 
 import torch
 
 
-def load_checkpoint(path: Path) -> Any:
-    """Read tensor checkpoints, retaining compatibility with pre-zip exports."""
+def load_checkpoint(path: Path, *, allow_legacy_pickle: bool = False) -> Any:
+    """Read checkpoints, retaining compatibility with old public exports.
+
+    The DAX public checkpoint contains a NumPy scalar in its metadata, which
+    PyTorch 2.5 rejects under ``weights_only=True``.  Baseline adapters pass
+    ``allow_legacy_pickle=True`` only for trusted local reference weights;
+    native DINO loaders retain the strict safe-unpickling default.
+    """
     try:
         return torch.load(path, map_location="cpu", weights_only=True, mmap=True)
-    except RuntimeError as exc:
+    except (RuntimeError, pickle.UnpicklingError) as exc:
+        if isinstance(exc, pickle.UnpicklingError) and allow_legacy_pickle:
+            return torch.load(path, map_location="cpu", weights_only=False)
         if "mmap can only be used with files saved with" not in str(exc):
             raise
         return torch.load(path, map_location="cpu", weights_only=True)
