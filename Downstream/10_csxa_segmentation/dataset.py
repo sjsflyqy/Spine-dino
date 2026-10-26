@@ -59,9 +59,12 @@ def image_tensor(image, input_size, augment=False, normalization=None):
     tensor = TF.to_tensor(image)
     if normalization is None:
         mean, std = MEAN, STD
+    elif isinstance(normalization, dict):
+        mean = normalization.get("mean")
+        std = normalization.get("std")
     else:
         mean, std = normalization
-    if mean is not None:
+    if mean is not None and std is not None:
         tensor = TF.normalize(tensor, mean, std)
     return tensor
 

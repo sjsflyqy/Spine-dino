@@ -29,6 +29,13 @@ BASELINE_SPECS: dict[str, dict[str, Any]] = {
     "medical_mae": dict(dim=768, depth=12, heads=12, image_size=224, patch_size=16,
                         registers=0, swiglu=False, layerscale=False, drop_path=0.0,
                         drop_path_uniform=False, antialias=False, pos_offset=0.0),
+    # BioMedCLIP's image tower is an OpenCLIP ViT-B/16.  The downstream
+    # adapter intentionally uses the 768-dimensional pre-projection tokens;
+    # the CLIP text tower and 512-dimensional contrastive projection are not
+    # needed for keypoint, vertebra or segmentation heads.
+    "biomedclip": dict(dim=768, depth=12, heads=12, image_size=224, patch_size=16,
+                        registers=0, swiglu=False, layerscale=False, drop_path=0.0,
+                        drop_path_uniform=False, antialias=False, pos_offset=0.0),
     "chexfound": dict(dim=1024, depth=24, heads=16, image_size=512, patch_size=16,
                       registers=4, swiglu=True, layerscale=True, drop_path=0.0,
                       drop_path_uniform=True, antialias=False, pos_offset=0.1),
@@ -81,6 +88,16 @@ def _normalize_keys(state: Mapping[str, Tensor]) -> dict[str, Tensor]:
                     changed = True
             updated[new_key] = value
         state = updated
+    # OpenCLIP stores the ViT image tower below visual.trunk.  Keep the
+    # projection head out of the encoder state because downstream tasks use
+    # dense pre-projection features.
+    normalized_visual = {}
+    for key, value in state.items():
+        if key.startswith("visual.trunk."):
+            normalized_visual[key[len("visual.trunk."):]] = value
+        elif not key.startswith("visual."):
+            normalized_visual[key] = value
+    state = normalized_visual
     # CheXFound's official teacher was saved with four BlockChunk containers.
     # The second numeric component is the original global block index, so
     # blocks.2.12.attn.qkv becomes blocks.12.attn.qkv.

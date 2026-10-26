@@ -1,0 +1,15 @@
+model:
+  backbone: eva_x
+  weights: reference_code/baseline/EVA-X/eva_x_base_patch16_merged520k_mim.pt
+  image_height: 896
+  image_width: 448
+  normalization: {mean: [0.49185243, 0.49185243, 0.49185243], std: [0.28509309, 0.28509309, 0.28509309]}
+training:
+  batch_size: 2
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0
+  workers: 4
+  seed: 42
+  early_stopping: {enabled: true, patience: 20, min_delta: 0.0001}
+output_dir: outputs/downstream/task07_keypoint_probe/mlp_probe/eva_x_public

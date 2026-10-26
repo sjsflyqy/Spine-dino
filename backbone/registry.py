@@ -210,15 +210,29 @@ def build_backbone(
         "rad_dino_maira_2": "microsoft/rad-dino-maira-2",
         "dinov2": "facebook/dinov2-base",
         "dinov2_base": "facebook/dinov2-base",
+        "cxformer": "reference_code/baseline/CXFormer",
+        "cxformer_base": "reference_code/baseline/CXFormer",
     }
     key = name.lower().replace("-", "_")
-    if key in {"dax", "medical_mae", "medicalmae", "chexfound", "chex_found"}:
+    if key in {"dax", "medical_mae", "medicalmae", "chexfound", "chex_found", "biomedclip", "biomed_clip"}:
         from .baseline_vit import BaselineViTBackbone
 
-        baseline_key = "medical_mae" if key == "medicalmae" else key.replace("chex_found", "chexfound")
+        baseline_key = "medical_mae" if key == "medicalmae" else key.replace("chex_found", "chexfound").replace("biomed_clip", "biomedclip")
         if not weights:
             raise ValueError(f"{baseline_key} requires a local public or trained checkpoint path")
         backbone = BaselineViTBackbone(baseline_key, weights, freeze=freeze)
+        return _configure_adapter(backbone, adapter)
+    if key in {"eva_x", "evax"}:
+        from .external_backbones import EVAXBackbone
+
+        if not weights:
+            raise ValueError("eva_x requires a local EVA-X checkpoint path")
+        backbone = EVAXBackbone(weights, freeze=freeze)
+        return _configure_adapter(backbone, adapter)
+    if key in {"cxformer", "cxformer_base"} and weights and Path(weights).is_file():
+        from .external_backbones import CXFormerBackbone
+
+        backbone = CXFormerBackbone(weights, freeze=freeze)
         return _configure_adapter(backbone, adapter)
     if key in {"dinov2", "dinov2_base"} and weights and Path(weights).suffix == ".pth":
         backbone = NativeDinoBackbone(2, weights, freeze=freeze)

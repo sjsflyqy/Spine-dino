@@ -1,0 +1,21 @@
+model:
+  backbone: eva_x
+  weights: reference_code/baseline/EVA-X/eva_x_base_patch16_merged520k_mim.pt
+  image_height: 896
+  image_width: 448
+  normalization: {mean: [0.49185243, 0.49185243, 0.49185243], std: [0.28509309, 0.28509309, 0.28509309]}
+  adapter: {enabled: true, type: lora, rank: 8, alpha: 16, dropout: 0.05, target_modules: [q_proj, k_proj, v_proj]}
+training:
+  batch_size: 1
+  epochs: 50
+  learning_rate: 0.001
+  head_learning_rate: 0.001
+  adapter_learning_rate: 0.0001
+  weight_decay: 0.01
+  warmup_epochs: 5
+  gradient_accumulation_steps: 2
+  max_grad_norm: 1.0
+  workers: 4
+  seed: 42
+  early_stopping: {enabled: true, patience: 10, min_delta: 0.0}
+output_dir: outputs/downstream/task07_keypoint_lora/eva_x_public

@@ -37,6 +37,13 @@ _legacy_scalar.__module__ = "numpy.core.multiarray"
 
 
 def load_tensor_checkpoint(path):
+    path = Path(path)
+    if path.suffix == ".safetensors":
+        try:
+            from safetensors.torch import load_file
+        except ImportError as exc:
+            raise RuntimeError("safetensors is required to load a CXFormer checkpoint") from exc
+        return dict(load_file(str(path), device="cpu"))
     allowed = [argparse.Namespace, set, _legacy_scalar, np.dtype]
     allowed += [type(np.dtype(name)) for name in ("float64", "float32", "int64", "int32")]
     # NumPy <2 uses the legacy spelling directly.
@@ -52,6 +59,62 @@ def load_tensor_checkpoint(path):
 
 
 def public_state(checkpoint, method):
+    if method == "cxformer":
+        # CXFormer is distributed as a Hugging Face DINOv2-with-registers
+        # safetensors file. Convert its HF names to the local DINO/iBOT
+        # backbone names and leave the randomly initialized projection heads
+        # for continued pretraining.
+        raw = checkpoint.get("model", checkpoint)
+        if not isinstance(raw, dict) or not raw:
+            raise ValueError("cxformer: expected a tensor state dictionary")
+        converted = {}
+        for key, value in raw.items():
+            if not isinstance(value, torch.Tensor):
+                continue
+            if key.startswith("embeddings."):
+                name = {
+                    "embeddings.cls_token": "cls_token",
+                    "embeddings.mask_token": "mask_token",
+                    "embeddings.position_embeddings": "pos_embed",
+                    "embeddings.register_tokens": "register_tokens",
+                    "embeddings.patch_embeddings.projection.weight": "patch_embed.proj.weight",
+                    "embeddings.patch_embeddings.projection.bias": "patch_embed.proj.bias",
+                }.get(key)
+            elif key.startswith("encoder.layer."):
+                match = re.match(r"encoder\.layer\.(\d+)\.(.+)$", key)
+                if not match:
+                    continue
+                index, suffix = match.groups()
+                suffix = {
+                    "attention.attention.query.weight": "attn.q.weight",
+                    "attention.attention.query.bias": "attn.q.bias",
+                    "attention.attention.key.weight": "attn.k.weight",
+                    "attention.attention.key.bias": "attn.k.bias",
+                    "attention.attention.value.weight": "attn.v.weight",
+                    "attention.attention.value.bias": "attn.v.bias",
+                    "attention.output.dense.weight": "attn.proj.weight",
+                    "attention.output.dense.bias": "attn.proj.bias",
+                    "layer_scale1.lambda1": "ls1.gamma",
+                    "layer_scale2.lambda1": "ls2.gamma",
+                    "mlp.fc1.weight": "mlp.fc1.weight",
+                    "mlp.fc1.bias": "mlp.fc1.bias",
+                    "mlp.fc2.weight": "mlp.fc2.weight",
+                    "mlp.fc2.bias": "mlp.fc2.bias",
+                    "norm1.weight": "norm1.weight",
+                    "norm1.bias": "norm1.bias",
+                    "norm2.weight": "norm2.weight",
+                    "norm2.bias": "norm2.bias",
+                }.get(suffix)
+                name = f"blocks.{index}.{suffix}" if suffix else None
+            elif key in {"layernorm.weight", "layernorm.bias"}:
+                name = key.replace("layernorm", "norm")
+            else:
+                name = None
+            if name is not None:
+                converted["backbone." + name] = value
+        if not converted:
+            raise ValueError("cxformer: no recognized Hugging Face encoder parameters")
+        return converted
     state = checkpoint.get("model") if method == "medical_mae" else checkpoint.get("teacher")
     if not isinstance(state, dict) or not state:
         raise ValueError(f"{method}: expected {'model' if method == 'medical_mae' else 'teacher'} tensor dictionary")
@@ -81,10 +144,28 @@ def initialize(model, config, *, compute_hash=True):
     missing, unexpected = sorted(expected.keys() - state.keys()), sorted(state.keys() - expected.keys())
     shapes = {k: (list(state[k].shape), list(expected[k].shape))
               for k in state.keys() & expected.keys() if state[k].shape != expected[k].shape}
+    allowed_missing = set()
+    if c_method := config.get("method"):
+        if c_method == "cxformer":
+            allowed_missing = {key for key in missing if key.startswith(("dino_head.", "ibot_head."))}
+    missing = sorted(set(missing) - allowed_missing)
     if missing or unexpected or shapes:
         raise ValueError(f"Public initialization mismatch: missing={missing[:12]}, unexpected={unexpected[:12]}, shapes={dict(list(shapes.items())[:8])}")
+    # HF CXFormer publishes only the encoder. Materialize fresh DINO/iBOT
+    # heads on CPU so the meta-constructed network can move to the training
+    # device after the public backbone is assigned.
+    for key in allowed_missing:
+        shape = tuple(expected[key].shape)
+        value = torch.empty(shape, dtype=expected[key].dtype, device="cpu")
+        if key.endswith("bias"):
+            value.zero_()
+        elif key.endswith("weight_g"):
+            value.fill_(1.0)
+        else:
+            value.normal_(mean=0.0, std=0.02)
+        state[key] = value
     # Construction on meta avoids initializing hundreds of millions of random parameters.
-    model.load_state_dict(state, strict=True, assign=True)
+    model.load_state_dict(state, strict=(not allowed_missing), assign=True)
     return {"path": str(path), "sha256": sha256(path) if compute_hash else None, "loaded_tensors": len(state),
             "loaded_elements": sum(x.numel() for x in state.values()),
             "public_epoch": checkpoint.get("epoch"), "all_parameters_loaded": True}

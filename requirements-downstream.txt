@@ -2,6 +2,7 @@ torch>=2.1
 torchvision>=0.16
 transformers>=4.40
 safetensors>=0.4
+timm>=0.9,<1.0
 pillow>=10
 pyyaml>=6
 numpy>=1.24

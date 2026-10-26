@@ -1,0 +1,17 @@
+model:
+  backbone: biomedclip
+  weights: reference_code/baseline/BiomedCLIP/open_clip_pytorch_model.bin
+  image_size: 512
+  normalization: {mean: [0.48145466, 0.4578275, 0.40821073], std: [0.26862954, 0.26130258, 0.27577711]}
+  freeze_backbone: true
+  adapter: {enabled: true, type: lora, rank: 8, alpha: 16, dropout: 0.05, target_modules: [qkv]}
+training:
+  batch_size: 2
+  epochs: 100
+  learning_rate: 0.001
+  adapter_learning_rate: 0.0001
+  weight_decay: 0.01
+  workers: 4
+  seed: 42
+  early_stopping: {enabled: true, patience: 20, min_delta: 0.0}
+output_dir: outputs/downstream/task09_lora/biomedclip_public

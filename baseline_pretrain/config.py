@@ -45,8 +45,8 @@ def load_config(path, overrides=()):
 
 
 def validate(c):
-    if c["method"] not in {"dax", "chexfound", "medical_mae"}:
-        raise ValueError("method must be dax, chexfound or medical_mae")
+    if c["method"] not in {"dax", "chexfound", "cxformer", "medical_mae"}:
+        raise ValueError("method must be dax, chexfound, cxformer or medical_mae")
     if not c.get("initialization"):
         raise ValueError("A public initialization checkpoint is required; random-init mode is not provided")
     t = c["training"]
@@ -92,7 +92,7 @@ def validate(c):
             raise ValueError("Temperature warmup exceeds budget")
         if crops["local_count"] < 0 or o["centering"] not in {"centering", "sinkhorn_knopp"}:
             raise ValueError("Invalid crop count or centering")
-        if c["method"] == "chexfound":
+        if c["method"] in {"chexfound", "cxformer"}:
             if not 0 < o["mask_sample_probability"] <= 1 or not 0 < o["mask_ratio_min"] <= o["mask_ratio_max"] < 1:
                 raise ValueError("Invalid iBOT masking probabilities")
             if o["koleo_scope"] not in {"local", "global"}:

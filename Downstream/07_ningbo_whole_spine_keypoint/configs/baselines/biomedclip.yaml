@@ -1,0 +1,17 @@
+model:
+  backbone: biomedclip
+  weights: reference_code/baseline/BiomedCLIP/open_clip_pytorch_model.bin
+  image_height: 896
+  image_width: 448
+  normalization:
+    mean: [0.48145466, 0.4578275, 0.40821073]
+    std: [0.26862954, 0.26130258, 0.27577711]
+training:
+  batch_size: 2
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0
+  workers: 4
+  seed: 42
+  early_stopping: {enabled: true, patience: 20, min_delta: 0.0001}
+output_dir: outputs/downstream/task07_keypoint_probe/mlp_probe/biomedclip_public

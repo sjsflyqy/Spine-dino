@@ -25,15 +25,27 @@ class PatchEmbed(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, dim, heads):
+    def __init__(self, dim, heads, *, separate_qkv=False):
         super().__init__()
         self.heads = heads
-        self.qkv = nn.Linear(dim, dim * 3)
+        self.separate_qkv = separate_qkv
+        if separate_qkv:
+            self.q = nn.Linear(dim, dim)
+            self.k = nn.Linear(dim, dim)
+            self.v = nn.Linear(dim, dim)
+        else:
+            self.qkv = nn.Linear(dim, dim * 3)
         self.proj = nn.Linear(dim, dim)
 
     def forward(self, x):
         b, n, d = x.shape
-        q, k, v = self.qkv(x).reshape(b, n, 3, self.heads, d // self.heads).permute(2, 0, 3, 1, 4).unbind(0)
+        if self.separate_qkv:
+            q, k, v = self.q(x), self.k(x), self.v(x)
+            q = q.reshape(b, n, self.heads, d // self.heads).transpose(1, 2)
+            k = k.reshape(b, n, self.heads, d // self.heads).transpose(1, 2)
+            v = v.reshape(b, n, self.heads, d // self.heads).transpose(1, 2)
+        else:
+            q, k, v = self.qkv(x).reshape(b, n, 3, self.heads, d // self.heads).permute(2, 0, 3, 1, 4).unbind(0)
         return self.proj(F.scaled_dot_product_attention(q, k, v).transpose(1, 2).reshape(b, n, d))
 
 
@@ -60,23 +72,24 @@ class SwiGLU(nn.Module):
 
 
 class LayerScale(nn.Module):
-    def __init__(self, dim):
+    def __init__(self, dim, init_value=1e-5):
         super().__init__()
-        self.gamma = nn.Parameter(torch.full((dim,), 1e-5))
+        self.gamma = nn.Parameter(torch.full((dim,), init_value))
 
     def forward(self, x):
         return x * self.gamma
 
 
 class Block(nn.Module):
-    def __init__(self, dim, heads, *, swiglu=False, layerscale=False, drop_path=0.0, subset_drop=False):
+    def __init__(self, dim, heads, *, swiglu=False, layerscale=False, layerscale_init=1e-5,
+                 separate_qkv=False, drop_path=0.0, subset_drop=False):
         super().__init__()
         self.norm1 = nn.LayerNorm(dim, eps=1e-6)
-        self.attn = Attention(dim, heads)
+        self.attn = Attention(dim, heads, separate_qkv=separate_qkv)
         self.norm2 = nn.LayerNorm(dim, eps=1e-6)
         self.mlp = SwiGLU(dim) if swiglu else Mlp(dim, 4 * dim)
-        self.ls1 = LayerScale(dim) if layerscale else nn.Identity()
-        self.ls2 = LayerScale(dim) if layerscale else nn.Identity()
+        self.ls1 = LayerScale(dim, layerscale_init) if layerscale else nn.Identity()
+        self.ls2 = LayerScale(dim, layerscale_init) if layerscale else nn.Identity()
         self.drop_path, self.subset_drop = drop_path, subset_drop
 
     def residual(self, x, fn):
@@ -98,7 +111,8 @@ class Block(nn.Module):
 
 class VisionTransformer(nn.Module):
     def __init__(self, *, dim, depth, heads, image_size, patch_size=16, registers=0,
-                 swiglu=False, layerscale=False, drop_path=0.0, drop_path_uniform=False,
+                 swiglu=False, layerscale=False, layerscale_init=1e-5, separate_qkv=False,
+                 drop_path=0.0, drop_path_uniform=False,
                  antialias=False, pos_offset=0.1, gradient_checkpointing=False, masked=False):
         super().__init__()
         self.dim, self.depth, self.patch_size = dim, depth, patch_size
@@ -112,7 +126,8 @@ class VisionTransformer(nn.Module):
         if masked:
             self.mask_token = nn.Parameter(torch.zeros(1, dim))
         self.blocks = nn.ModuleList([
-            Block(dim, heads, swiglu=swiglu, layerscale=layerscale, subset_drop=layerscale,
+            Block(dim, heads, swiglu=swiglu, layerscale=layerscale, layerscale_init=layerscale_init,
+                  separate_qkv=separate_qkv, subset_drop=layerscale,
                   drop_path=drop_path if drop_path_uniform else drop_path * i / max(depth - 1, 1))
             for i in range(depth)
         ])
@@ -187,7 +202,7 @@ class DistillationNetwork(nn.Module):
         self.backbone = VisionTransformer(**spec)
         self.dino_head = DINOHead(spec["dim"], objective["prototypes"], objective["head_hidden"],
                                   objective["dino_bottleneck"], objective.get("freeze_gain", False))
-        if method == "chexfound":
+        if method in {"chexfound", "cxformer"}:
             self.ibot_head = DINOHead(spec["dim"], objective["prototypes"], objective["head_hidden"], objective["ibot_bottleneck"])
 
     def forward(self, crops, masks=None):
@@ -198,7 +213,7 @@ class DistillationNetwork(nn.Module):
             local_cls, _ = self.backbone(torch.cat(crops[2:]))
             all_cls = torch.cat((cls, local_cls))
         out = {"cls_logits": self.dino_head(all_cls), "global_cls": cls}
-        if self.method == "chexfound":
+        if self.method in {"chexfound", "cxformer"}:
             # Empty masking is rejected by the objective; every rank executes the same head path.
             out["patch_logits"] = self.ibot_head(patch[masks])
         return out
