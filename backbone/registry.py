@@ -229,6 +229,13 @@ def build_backbone(
             raise ValueError("eva_x requires a local EVA-X checkpoint path")
         backbone = EVAXBackbone(weights, freeze=freeze)
         return _configure_adapter(backbone, adapter)
+    if key in {"ray_dino", "raydino", "xray_dino", "xraydino"}:
+        from .ray_dino import RayDinoBackbone
+
+        if not weights:
+            raise ValueError("ray_dino requires a local Ray-DINO checkpoint path")
+        backbone = RayDinoBackbone(weights, freeze=freeze)
+        return _configure_adapter(backbone, adapter)
     if key in {"cxformer", "cxformer_base"} and weights and Path(weights).is_file():
         from .external_backbones import CXFormerBackbone
 

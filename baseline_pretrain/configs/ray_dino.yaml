@@ -1,0 +1,77 @@
+method: ray_dino
+seed: 42
+initialization: reference_code/baseline/Ray-DINO/xray-dino-vitl16.pth
+output_dir: outputs/baseline_pretrain/ray_dino/spine_29420updates_seed42
+data:
+  root: SpinePretrain-v1/spine_dino_no_known_cervical_with_downstream_v2
+  index: SpinePretrain-v1/spine_dino_no_known_cervical_with_downstream_v2/extra/image_files-TRAIN.npy
+model:
+  dim: 1024
+  depth: 24
+  heads: 16
+  image_size: 512
+  patch_size: 16
+  registers: 0
+  masked: true
+  swiglu: false
+  layerscale: true
+  layerscale_init: 1.0
+  drop_path: 0.4
+  drop_path_uniform: true
+  antialias: false
+  pos_offset: 0.1
+  gradient_checkpointing: true
+crops:
+  global_size: 512
+  local_size: 224
+  global_scale: [0.15, 1.0]
+  local_scale: [0.05, 0.15]
+  local_count: 8
+  aspect_ratio: [0.75, 1.3333333333333333]
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+objective:
+  prototypes: 131072
+  head_hidden: 2048
+  dino_bottleneck: 384
+  ibot_bottleneck: 256
+  freeze_gain: false
+  dino_weight: 1.0
+  ibot_weight: 1.0
+  koleo_weight: 0.1
+  koleo_scope: global
+  student_temperature: 0.1
+  teacher_temperature_start: 0.04
+  teacher_temperature: 0.07
+  temperature_warmup_updates: 6000
+  center_momentum: 0.9
+  centering: sinkhorn_knopp
+  teacher_momentum: 0.994
+  teacher_momentum_end: 1.0
+  mask_sample_probability: 0.5
+  mask_ratio_min: 0.1
+  mask_ratio_max: 0.5
+training:
+  expected_world_size: 2
+  parallel: fsdp
+  fsdp_sharding: FULL_SHARD
+  precision: bf16
+  batch_size_per_gpu: 1
+  accumulation_steps: 8
+  total_updates: 29420
+  learning_rate: 5.0e-5
+  min_learning_rate: 1.0e-6
+  backbone_lr_multiplier: 0.125
+  patch_embed_lr_multiplier: 0.2
+  layerwise_decay: 0.9
+  warmup_updates: 6000
+  freeze_last_layer_updates: 1000
+  weight_decay: 0.04
+  weight_decay_end: 0.2
+  betas: [0.9, 0.999]
+  clip_grad: 3.0
+  workers: 2
+  prefetch_factor: 1
+  checkpoint_every: 5000
+  keep_last: 1
+  log_every: 20

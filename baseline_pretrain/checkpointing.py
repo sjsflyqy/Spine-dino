@@ -115,6 +115,25 @@ def public_state(checkpoint, method):
         if not converted:
             raise ValueError("cxformer: no recognized Hugging Face encoder parameters")
         return converted
+    if method == "ray_dino":
+        # Ray-DINO is distributed as a bare ViT-L/16 encoder state dict. Its
+        # upstream DINOv2 implementation stores four BlockChunk containers;
+        # the local pretraining model keeps a flat block list, so flatten the
+        # chunk/global indices while preserving every encoder tensor.
+        raw = checkpoint.get("model", checkpoint) if isinstance(checkpoint, dict) else checkpoint
+        if not isinstance(raw, dict) or not raw or not all(isinstance(v, torch.Tensor) for v in raw.values()):
+            raise ValueError("ray_dino: expected a bare tensor state dictionary")
+        output = {}
+        for key, value in raw.items():
+            if key.startswith("module."):
+                key = key[7:]
+            match = re.match(r"^blocks\.\d+\.(\d+)\.(.+)$", key)
+            if match:
+                key = f"blocks.{match.group(1)}.{match.group(2)}"
+            if key.startswith(("dino_head.", "ibot_head.")):
+                continue
+            output["backbone." + key] = value
+        return output
     state = checkpoint.get("model") if method == "medical_mae" else checkpoint.get("teacher")
     if not isinstance(state, dict) or not state:
         raise ValueError(f"{method}: expected {'model' if method == 'medical_mae' else 'teacher'} tensor dictionary")
@@ -146,7 +165,7 @@ def initialize(model, config, *, compute_hash=True):
               for k in state.keys() & expected.keys() if state[k].shape != expected[k].shape}
     allowed_missing = set()
     if c_method := config.get("method"):
-        if c_method == "cxformer":
+        if c_method in {"cxformer", "ray_dino"}:
             allowed_missing = {key for key in missing if key.startswith(("dino_head.", "ibot_head."))}
     missing = sorted(set(missing) - allowed_missing)
     if missing or unexpected or shapes:

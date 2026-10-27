@@ -1,0 +1,17 @@
+model:
+  backbone: ray_dino
+  weights: reference_code/baseline/Ray-DINO/xray-dino-vitl16.pth
+  image_size: 512
+  normalization: {mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225]}
+  freeze_backbone: true
+  adapter: {enabled: true, type: lora, rank: 8, alpha: 16, dropout: 0.05, target_modules: [qkv]}
+training:
+  batch_size: 1
+  epochs: 100
+  learning_rate: 0.001
+  adapter_learning_rate: 0.00005
+  weight_decay: 0.01
+  workers: 2
+  seed: 42
+  early_stopping: {enabled: true, patience: 20, min_delta: 0.0}
+output_dir: outputs/downstream/task09_lora/ray_dino_public

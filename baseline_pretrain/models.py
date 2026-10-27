@@ -202,7 +202,7 @@ class DistillationNetwork(nn.Module):
         self.backbone = VisionTransformer(**spec)
         self.dino_head = DINOHead(spec["dim"], objective["prototypes"], objective["head_hidden"],
                                   objective["dino_bottleneck"], objective.get("freeze_gain", False))
-        if method in {"chexfound", "cxformer"}:
+        if method in {"chexfound", "cxformer", "ray_dino"}:
             self.ibot_head = DINOHead(spec["dim"], objective["prototypes"], objective["head_hidden"], objective["ibot_bottleneck"])
 
     def forward(self, crops, masks=None):
@@ -213,7 +213,7 @@ class DistillationNetwork(nn.Module):
             local_cls, _ = self.backbone(torch.cat(crops[2:]))
             all_cls = torch.cat((cls, local_cls))
         out = {"cls_logits": self.dino_head(all_cls), "global_cls": cls}
-        if self.method in {"chexfound", "cxformer"}:
+        if self.method in {"chexfound", "cxformer", "ray_dino"}:
             # Empty masking is rejected by the objective; every rank executes the same head path.
             out["patch_logits"] = self.ibot_head(patch[masks])
         return out

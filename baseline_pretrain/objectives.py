@@ -94,7 +94,7 @@ class DistillationObjective(nn.Module):
         dino = torch.stack(terms).mean()
         loss = dino * c["dino_weight"]
         metrics = {"dino_loss": dino.detach()}
-        if self.method == "chexfound":
+        if self.method in {"chexfound", "ray_dino"}:
             with torch.no_grad():
                 patch_targets = sinkhorn(teacher["patch_logits"].detach(), temperature)
             per_patch = -(patch_targets * F.log_softmax(student["patch_logits"].float() / c["student_temperature"], -1)).sum(-1)

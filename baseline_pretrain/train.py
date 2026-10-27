@@ -253,7 +253,7 @@ def run(c, args, dataset, output, resume, device, world, rank, stop):
     if teacher is not None and t["parallel"] == "fsdp":
         teacher = parallelize(teacher, c, device, world)
     objective = DistillationObjective(c["method"], c["objective"]).to(device) if teacher is not None else None
-    if c["method"] in {"chexfound", "cxformer"} and c["objective"]["koleo_weight"]:
+    if c["method"] in {"chexfound", "cxformer", "ray_dino"} and c["objective"]["koleo_weight"]:
         neighbors = t["batch_size_per_gpu"] * (world if c["objective"]["koleo_scope"] == "global" else 1)
         if neighbors < 2:
             raise ValueError("Configured KoLeo has fewer than two images per view")
@@ -316,7 +316,7 @@ def run(c, args, dataset, output, resume, device, world, rank, stop):
                     parts = {"mae_loss": loss.detach()}
                 else:
                     crops = [image.to(device, non_blocking=True) for image in batch]
-                    masks = block_masks(2 * len(crops[0]), c["crops"]["global_size"] // c["model"]["patch_size"], c["objective"], device) if c["method"] in {"chexfound", "cxformer"} else None
+                    masks = block_masks(2 * len(crops[0]), c["crops"]["global_size"] // c["model"]["patch_size"], c["objective"], device) if c["method"] in {"chexfound", "cxformer", "ray_dino"} else None
                     with torch.no_grad():
                         targets = teacher(crops[:2], masks)
                     predictions = student(crops, masks)
